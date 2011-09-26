@@ -21,20 +21,29 @@ all: $(TARGET_PACKAGES)
 $(KERNEL_CONFIG):kernelconfig
 	cp kernelconfig $@
 
-
-$(TARGET_PACKAGES):$(KERNEL_CONFIG)
+build/arbiter-kernel-build-stamp: $(KERNEL_CONFIG)
 	rm -fr build
-	mkdir -p build	
-	(cd linux-2.6.32; export CONCURRENCY_LEVEL=$(CONCUR_LEVEL); fakeroot make-kpkg --initrd --append-to-version=$(APPEND_VERSION) kernel-image kernel-headers)
+	mkdir -p build
+#cp kernelconfig $(KERNEL_CONFIG)
+	(cd $(LINUX_DIR); export CONCURRENCY_LEVEL=$(CONCUR_LEVEL); fakeroot make-kpkg --initrd --append-to-version=$(APPEND_VERSION) kernel-image kernel-headers)
 	mv linux-image-2.6.32$(APPEND_VERSIION)*.deb $(KERN_PACKAGE)
 	mv linux-headers-2.6.32$(APPEND_VERSIION)*.deb $(HEADER_PACKAGE)
+	touch $@
 
 
-install:$(TARGET_PACKAGES)
-	sudo dpkg -i $(KERN_PACKAGE)
-	sudo dpkg -i $(HEADER_PACKAGE)
-	sudo update-initramfs -c -k $(MODULES_DIR)
-	sudo update-grub
+$(TARGET_PACKAGES): build/arbiter-kernel-build-stamp
+#still need to rebuild since we cannot track source changes, need to find a way to fix this
+	rm -f build/arbiter-kernel-build-stamp
+
+install:
+#cannot depend on target packages since we force to build everytime
+	stat $(TARGET_PACKAGES)
+	rm /boot/*arbiter*
+	rm -fr /lib/modules/$(MODULES_DIR)
+	dpkg -i $(KERN_PACKAGE)
+	dpkg -i $(HEADER_PACKAGE)
+	update-initramfs -c -k $(MODULES_DIR)
+	update-grub
 
 clean:
 	rm -fr build
