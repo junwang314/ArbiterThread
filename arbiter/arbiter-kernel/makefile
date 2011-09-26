@@ -50,5 +50,5 @@ clean:
 
 
 clean-linux:
-	(cd linux-2.6.32; make clean)
-	(cd linux-2.6.32; make mrproper)
+	(cd $(LINUX_DIR); make clean)
+	(cd $(LINUX_DIR); make mrproper)
