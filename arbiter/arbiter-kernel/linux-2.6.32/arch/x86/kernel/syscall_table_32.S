@@ -336,3 +336,6 @@ ENTRY(sys_call_table)
 	.long sys_pwritev
 	.long sys_rt_tgsigqueueinfo	/* 335 */
 	.long sys_perf_event_open
+	
+	/*arbiter thread allocator*/
+	.long sys_arbilloc		/* 337 */

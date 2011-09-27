@@ -67,6 +67,9 @@ asmlinkage int sys_olduname(struct oldold_utsname __user *);
 int sys_vm86old(struct pt_regs *);
 int sys_vm86(struct pt_regs *);
 
+/* arbiter thread allocator */
+asmlinkage int sys_arbilloc();
+
 #else /* CONFIG_X86_32 */
 
 /* X86_64 only */
