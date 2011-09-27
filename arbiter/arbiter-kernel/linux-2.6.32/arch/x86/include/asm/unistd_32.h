@@ -344,7 +344,7 @@
 #define __NR_perf_event_open	336
 
 /*arbiter thread allocator*/
-#define __NR_arbilloc		337
+#define __NR_arbilloc		340
 
 #ifdef __KERNEL__
 

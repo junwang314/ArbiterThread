@@ -1,1 +1,1 @@
-#define RET 0;
+#define RET 0

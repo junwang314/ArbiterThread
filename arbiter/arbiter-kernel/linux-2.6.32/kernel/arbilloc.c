@@ -3,7 +3,7 @@
 #include "arbilloc.h"
 
 asmlinkage int sys_arbilloc()
-{
-	printfk(KERN_EMERG "This is arbiter thread allocator!\n");
+{	
+	printk(KERN_EMERG "This is arbiter thread allocator!\n");
 	return RET;
 }
