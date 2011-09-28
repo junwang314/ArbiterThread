@@ -344,11 +344,11 @@
 #define __NR_perf_event_open	336
 
 /*arbiter thread allocator*/
-#define __NR_arbilloc		340
+#define __NR_arbilloc		337
 
 #ifdef __KERNEL__
 
-#define NR_syscalls 337
+#define NR_syscalls 338
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR

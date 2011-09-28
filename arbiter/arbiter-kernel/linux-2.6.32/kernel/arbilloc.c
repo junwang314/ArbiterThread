@@ -1,9 +1,9 @@
 #include <linux/linkage.h>
 #include <linux/kernel.h>
-#include "arbilloc.h"
+//#include "arbilloc.h"
 
-asmlinkage int sys_arbilloc()
+asmlinkage int sys_arbilloc(int aaa)
 {	
-	printk(KERN_EMERG "This is arbiter thread allocator!\n");
-	return RET;
+	printk("This is arbiter thread allocator!\n");
+	return (aaa+1);
 }
