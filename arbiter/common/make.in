@@ -1,0 +1,35 @@
+BUILD=./build
+
+BUILD_TARGETS=$(patsubst %, $(BUILD)/%, $(TARGETS))
+
+VPATH=$(BUILD)
+
+CC:=$(CC) $(CFLAGS)
+
+
+########## Targets
+
+# Generating dependencies for the next invocation, per the "Tom Tromey"
+# method at: http://mad-scientist.net/make/autodep.html#basic
+$(BUILD)/%.o: %.c
+	# make the dependency
+	($(CC) $< -M -MF $@.tmp; \
+	if [ $$? -ne 0 ]; then \
+		rm $@.tmp; false; \
+	else \
+		sed 's#\([^.]*\).o:#$(BUILD)/\1.o: #' < $@.tmp > $(patsubst %.o,%.dep,$@) && \
+		rm $@.tmp; \
+	fi)
+	($(CC) -c $< -o $@ )
+
+-include $(patsubst %.S,$(BUILD)/%.dep,$(patsubst %.cpp,$(BUILD)/%.dep,$(patsubst %.c,$(BUILD)/%.dep,$(DEP_SRCS))))
+-include $(patsubst %.o,$(BUILD)/%.dep,$(MODULE_OBJS))
+
+
+
+all:$(BUILD) $(BUILD_TARGETS)
+
+$(BUILD):
+	mkdir -p $(BUILD)
+clean:
+	rm -fr build
