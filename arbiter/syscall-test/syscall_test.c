@@ -10,6 +10,8 @@ int main()
 { 
 	int aaa = 5;
 	printf("if aaa = %d\n", aaa);
-	printf("arbilloc(aaa) =  %d\n", arbilloc(aaa));
-  	return 0;
+	printf("absys_mmap(aaa) =  %d\n", absys_mmap(aaa));
+  	if (absys_fork()==0)
+		printf("absys_fork works!\n");
+	return 0;
 }

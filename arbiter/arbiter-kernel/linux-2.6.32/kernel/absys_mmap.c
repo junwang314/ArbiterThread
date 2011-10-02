@@ -2,7 +2,7 @@
 #include <linux/kernel.h>
 //#include "arbilloc.h"
 
-asmlinkage int absys_mmap(int aaa)
+asmlinkage int sys_absys_mmap(int aaa)
 {	
 	printk("This is arbiter thread allocator!\n");
 	return (aaa+1);
