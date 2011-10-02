@@ -343,12 +343,13 @@
 #define __NR_rt_tgsigqueueinfo	335
 #define __NR_perf_event_open	336
 
-/*arbiter thread allocator*/
-#define __NR_arbilloc		337
+/*arbiter thread*/
+#define __NR_absys_mmap		337
+#define __NR_absys_fork		338
 
 #ifdef __KERNEL__
 
-#define NR_syscalls 338
+#define NR_syscalls 339
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR
