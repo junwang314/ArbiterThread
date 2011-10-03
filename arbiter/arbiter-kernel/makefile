@@ -38,7 +38,7 @@ $(TARGET_PACKAGES): build/arbiter-kernel-build-stamp
 install:
 #cannot depend on target packages since we force to build everytime
 	stat $(TARGET_PACKAGES)
-	rm /boot/*arbiter*
+	rm -fr /boot/*arbiter*
 	rm -fr /lib/modules/$(MODULES_DIR)
 	dpkg -i $(KERN_PACKAGE)
 	dpkg -i $(HEADER_PACKAGE)
