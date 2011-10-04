@@ -38,8 +38,8 @@ asmlinkage int sys_get_thread_area(struct user_desc __user *);
 /* kernel/absys_mmap.c  arbiter thread */
 asmlinkage int sys_absys_mmap(int);
 
-/* kernel/absys_fork.c  arbiter thread */
-asmlinkage int sys_absys_fork(void);
+/* kernel/absys_thread_control.c  arbiter thread */
+asmlinkage int sys_absys_thread_control(void);
 
 #ifdef CONFIG_X86_32
 /* kernel/ioport.c */

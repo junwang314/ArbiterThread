@@ -337,4 +337,4 @@ ENTRY(sys_call_table)
 	.long sys_rt_tgsigqueueinfo	/* 335 */
 	.long sys_perf_event_open
 	.long sys_absys_mmap		/* 337 arbiter thread */
-	.long sys_absys_fork		/* 338 arbiter thread */
+	.long sys_absys_thread_control	/* 338 arbiter thread */

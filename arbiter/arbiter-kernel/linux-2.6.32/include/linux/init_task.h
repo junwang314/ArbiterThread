@@ -143,6 +143,9 @@ extern struct cred init_cred;
 	},								\
 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
 	.pushable_tasks = PLIST_NODE_INIT(tsk.pushable_tasks, MAX_PRIO), \
+/* arbiter thread: ab_tasks, ab_identity */				\
+	.ab_tasks	= LIST_HEAD_INIT(tsk.ab_tasks),			\
+	.ab_identity	= 0,						\
 	.ptraced	= LIST_HEAD_INIT(tsk.ptraced),			\
 	.ptrace_entry	= LIST_HEAD_INIT(tsk.ptrace_entry),		\
 	.real_parent	= &tsk,						\

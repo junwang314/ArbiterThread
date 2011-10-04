@@ -1434,6 +1434,10 @@ long do_fork(unsigned long clone_flags,
 
 		nr = task_pid_vnr(p);
 
+/* arbiter thread: initialize ab_list_head and ab_identity*/
+		p->ab_tasks = INIT_LIST_HEAD(&p->ab_tasks);
+		p->ab_identity = 0;
+
 		if (clone_flags & CLONE_PARENT_SETTID)
 			put_user(nr, parent_tidptr);
 

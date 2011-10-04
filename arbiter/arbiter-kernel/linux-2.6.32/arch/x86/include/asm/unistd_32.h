@@ -345,7 +345,7 @@
 
 /*arbiter thread*/
 #define __NR_absys_mmap		337
-#define __NR_absys_fork		338
+#define __NR_absys_thread_control	338
 
 #ifdef __KERNEL__
 
