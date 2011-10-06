@@ -9,7 +9,7 @@
 #define __NR_absys_thread_control	338
 
 //ab_thread_control_flag
-#define AB_SET_ME_COMMON	0x00000000
+#define AB_SET_ME_SPECIAL	0x00000000
 #define AB_SET_ME_ARBITER	0x00000001
 
 /*
