@@ -36,7 +36,8 @@ asmlinkage int sys_get_thread_area(struct user_desc __user *);
 /* X86_32 only */
 
 /* kernel/absys_mmap.c  arbiter thread */
-asmlinkage int sys_absys_mmap(int);
+asmlinkage long sys_absys_mmap(unsigned long, unsigned long, unsigned long,
+			       unsigned long, unsigned long, unsigned long)
 
 /* kernel/absys_thread_control.c  arbiter thread */
 asmlinkage int sys_absys_thread_control(void);

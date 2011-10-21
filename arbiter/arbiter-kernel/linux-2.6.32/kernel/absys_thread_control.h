@@ -53,4 +53,14 @@ static inline int convert_to_identity(int ab_category, int ab_role)
 	return (ab_category << AB_CATEGORY_SHIFT) | ab_role;
 }
 
+static inline struct task_struct *find_my_arbiter(struct task_struct *tsk)
+{
+	struct task_struct *t;
+	list_for_each_entry(t, &tsk->ab_tasks, ab_tasks) {
+		if (is_arbiter(t))
+			return t;
+	}
+	return NULL;
+}
+
 #endif //_ABSYS_THREAD_CONTROL_H
