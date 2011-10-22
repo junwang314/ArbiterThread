@@ -8,12 +8,14 @@
 #include "absys_mmap.h"
 #include <linux/abt_common.h>
 
-asmlinkage long sys_absys_mmap(	unsigned long addr, unsigned long len, 
-				unsigned long prot, unsigned long flags, 
-				unsigned long fd, unsigned long pgoff)
+asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr, 
+				unsigned long len, unsigned long prot, 
+				unsigned long flags, unsigned long fd, 
+				unsigned long pgoff)
 {	
-	AB_INFO();
+	AB_INFO("absys_mmap system call received. argments = (%ld, %ld, %ld, %ld, %ld, %ld, %ld,)\n", (unsigned long) childpid, addr, len, prot, flags, fd, pgoff);
 
+	return 0xfeedbeef;
 
 	/* int error = -EBADF; */
 	/* struct mm_struct *mm = current->mm; */
