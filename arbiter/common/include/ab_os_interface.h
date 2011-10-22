@@ -3,6 +3,9 @@
 
 #include <unistd.h>
 
+#include <sys/mman.h>
+#include <sys/types.h>
+
 
 //new system call
 #define __NR_absys_mmap			337
@@ -12,14 +15,19 @@
 #define AB_SET_ME_SPECIAL	0x00000000
 #define AB_SET_ME_ARBITER	0x00000001
 
-/*
-system call arbilloc will take (input + 1) as output
-*/
 
-static inline int absys_mmap(int aaa)
+
+/* called by the arbiter thread, pid designates a child thread in its */
+/* control group, however the call would affect virtual address
+allocation of all the child threads in its control group */
+
+static inline void *absys_mmap (pid_t pid, void *addr, size_t len, int prot,
+		   int flags, int fd, __off_t offset)
 {
-	return syscall(__NR_absys_mmap, aaa);
+	return (void *) syscall(__NR_absys_mmap, pid, addr, len, prot, 
+		       flags, fd, offset);
 }
+
 
 static inline int absys_thread_control(int ab_thread_control_flag)
 {

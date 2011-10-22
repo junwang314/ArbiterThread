@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include <stdlib.h>
+
 #include <ab_os_interface.h>
 
 int main()
@@ -11,8 +13,10 @@ int main()
 	pid_t pid1, pid2, pid3;
 
 	/* test absys_mmap() */
-	printf("if aaa = %d\n", aaa);
-	printf("absys_mmap(aaa) =  %d\n", absys_mmap(aaa));
+	//printf("if aaa = %d\n", aaa);
+	printf("absys_mmap =  %p\n", absys_mmap(1234, (void *) 0xdeadbeef,
+						     4096, 7, 8, 9, 128));
+
 
 	/* test absys_thread_control */
 	if (absys_thread_control(AB_SET_ME_ARBITER)==0)
