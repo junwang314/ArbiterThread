@@ -14,7 +14,7 @@
 #define AB_INFO(...) if((AB_INFO_TAG)) {printk(KERN_ERR __VA_ARGS__);}
 #define AB_DBG(...)  if((AB_DEBUG_TAG)) {printk(KERN_ERR __VA_ARGS__);}
 
-
+#define VM_AB_CONTROL	VM_SAO
 
 
 

@@ -3,7 +3,7 @@
 
 #include <linux/list.h>
 
-
+/* find task_struct of pid*/
 
 
 
