@@ -3,6 +3,7 @@
 
 #include <linux/pid.h>
 #include <asm/atomic.h>
+#include <linux/sched.h>
 
 /* int ab_identity: 
 * ===============================|=
@@ -61,6 +62,15 @@ static inline struct task_struct *find_my_arbiter(struct task_struct *tsk)
 			return t;
 	}
 	return NULL;
+}
+
+static inline struct task_struct *get_child_task_by_pid(pid_t pid)
+{
+	struct task_struct *result;
+	rcu_read_lock();
+	result = find_task_by_vpid(pid);  // find_task_by_vpid() can be found in kernel/pid.c
+	rcu_read_unlock();
+	return result;
 }
 
 #endif //_ABSYS_THREAD_CONTROL_H

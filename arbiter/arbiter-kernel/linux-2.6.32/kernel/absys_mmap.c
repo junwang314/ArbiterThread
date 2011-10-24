@@ -36,14 +36,18 @@
 #include "absys_thread_control.h"
 #include <linux/abt_common.h>
 
+#ifndef arch_mmap_check	  // these three lines are copied from mm/mmap.c to declare arch_mmap_check
+#define arch_mmap_check(addr, len, flags)	(0)
+#endif
+
 /* do_absys_mmap_pgoff()
  * The caller must hold down_write(&current->mm->mmap_sem).
  */
-unsigned long do_absys_mmap_pgoff( struct task_struct tsk, struct file *file, 
+unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file, 
 				   unsigned long addr, unsigned long len, unsigned long prot,
 				   unsigned long flags, unsigned long pgoff)
 {
-	struct mm_struct * mm = current->mm;
+	struct mm_struct * mm = tsk->mm;
 	struct inode *inode;
 	unsigned int vm_flags;
 	int error;
@@ -206,11 +210,11 @@ unsigned long do_absys_mmap_pgoff( struct task_struct tsk, struct file *file,
 /* do_absys_vma_propagate()
  * The caller must hold down_write(&current->mm->mmap_sem).
  */
-unsigned long do_absys_vma_propagate( struct task_struct tsk, struct file *file, 
+unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file, 
 				      unsigned long addr, unsigned long len, unsigned long prot,
 				      unsigned long flags, unsigned long pgoff)
 {
-	struct mm_struct * mm = current->mm;
+	struct mm_struct * mm = tsk->mm;
 	struct inode *inode;
 	unsigned int vm_flags;
 	int error;
@@ -377,7 +381,7 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 {	
 	AB_INFO("absys_mmap system call received. argments = (%ld, %ld, %ld, %ld, %ld, %ld, %ld,)\n", (unsigned long) childpid, addr, len, prot, flags, fd, pgoff);
 
-	unsigned long ret;
+	unsigned long ret_target_child, ret_other_child;
 	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm_target_child, *mm_other_child;
 	struct file *file = NULL;
@@ -388,17 +392,19 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 		return -EINVAL;		// EINVAL means invalid argument
 	}
 
+	/* find target task_struct by pid */
+	tsk_target_child = get_child_task_by_pid(childpid);
+
 	/* check if called by ARBITER and do mmap for child thread in its control group */
 	if (is_arbiter(current) && (current == find_my_arbiter(tsk_target_child))) {
 		/* for child thread specified by childpid:
-		 * 1) find task_struct (by pid) and mm_struct; 2) set VMA.
+		 * set VMA.
 		 */
-		tsk_target_child = get_child_task_by_pid(childpid);
 		mm_target_child = tsk_target_child->mm;
 		down_write(&mm_target_child->mmap_sem);
-		ret = do_absys_mmap_pgoff(*tsk_target_child, file, addr, len, prot, flags, pgoff);
+		ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
 		up_write(&mm_target_child->mmap_sem);
-		if (ret < 0)
+		if (ret_target_child < 0)
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
 			return -1;
 
@@ -406,12 +412,12 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 		 * 1) go through every child
 		 * 2) reserve correspongding VMA with nimimux interference
 		 */ 
-		list_for_each_entry(*tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
+		list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
 		mm_other_child = tsk_other_child->mm;
 		down_write(&mm_other_child->mmap_sem);
-		ret = do_absys_vma_propagate(tsk_other_child, file, ret, len, prot, flags, pgoff); // use ret instead of addr
+		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
 		up_write(&mm_other_child->mmap_sem);
-		if (ret < 0)
+		if (ret_other_child < 0)
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
 			return -1;
 		}
@@ -419,7 +425,7 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 	else
 		return -EPERM;		// EPERM means operation not permitted
 
-	return ret;
+	return ret_target_child;
 }
 
 /* system call absys_brk() */
