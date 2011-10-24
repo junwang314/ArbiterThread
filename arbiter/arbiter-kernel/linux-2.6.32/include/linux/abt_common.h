@@ -6,7 +6,7 @@
 
 /********** debug **********/
 
-#define AB_VEBOSE_TAG 1
+#define AB_VERBOSE_TAG 1
 #define AB_INFO_TAG   1
 #define AB_DEBUG_TAG  1
 
