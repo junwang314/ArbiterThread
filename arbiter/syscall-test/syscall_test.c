@@ -14,8 +14,8 @@ int main()
 
 	/* test absys_mmap() */
 	//printf("if aaa = %d\n", aaa);
-	printf("absys_mmap =  %p\n", absys_mmap(1234, (void *) 0xdeadbeef,
-						     4096, 7, 8, 9, 128));
+	printf("absys_mmap =  %p\n", absys_mmap(1517, (void *) 0xdeadbeef,
+						     4096, 7, 8, -1, 0));
 
 
 	/* test absys_thread_control */

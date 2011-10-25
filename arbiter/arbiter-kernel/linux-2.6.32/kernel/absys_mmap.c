@@ -219,6 +219,9 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	unsigned int vm_flags;
 	int error;
 	unsigned long reqprot = prot;
+	/* temporary variable used for doing minimum interference, at the end of this function */
+	unsigned long addr_tmp, len_tmp, addr_ret;
+	struct vm_area_struct *vma_tmp;
 
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
@@ -232,52 +235,57 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 
 	if (!len)
 		return -EINVAL;
-
+/* these two lines are unnecessary because MAP_FIXED is forced to set
 	if (!(flags & MAP_FIXED))
 		addr = round_hint_to_min(addr);
+*/
 
-	error = arch_mmap_check(addr, len, flags);
-	if (error)
-		return error;
-
-	/* Careful about overflows.. */
-	len = PAGE_ALIGN(len);
-	if (!len || len > TASK_SIZE)
-		return -ENOMEM;
-
-	/* offset overflow? */
-	if ((pgoff + (len >> PAGE_SHIFT)) < pgoff)
-               return -EOVERFLOW;
-
-	/* Too many mappings? */
-	if (mm->map_count > sysctl_max_map_count)
-		return -ENOMEM;
-
-	if (flags & MAP_HUGETLB) {
-		struct user_struct *user = NULL;
-		if (file)
-			return -EINVAL;
-
+/* the following lines are unnecessary 
+ * because these has been done by do_absys_mmap_pgoff() in sys_absys_mmap()
+ */ 
+//	error = arch_mmap_check(addr, len, flags);
+//	if (error)
+//		return error;
+//
+//	/* Careful about overflows.. */
+//	len = PAGE_ALIGN(len);
+//	if (!len || len > TASK_SIZE)
+//		return -ENOMEM;
+//
+//	/* offset overflow? */
+//	if ((pgoff + (len >> PAGE_SHIFT)) < pgoff)
+//              return -EOVERFLOW;
+//
+//	/* Too many mappings? */
+//	if (mm->map_count > sysctl_max_map_count)
+//		return -ENOMEM;
+//
+//	if (flags & MAP_HUGETLB) {
+//		struct user_struct *user = NULL;
+//		if (file)
+//			return -EINVAL;
+//
 		/*
 		 * VM_NORESERVE is used because the reservations will be
 		 * taken when vm_ops->mmap() is called
 		 * A dummy user value is used because we are not locking
 		 * memory so no accounting is necessary
 		 */
-		len = ALIGN(len, huge_page_size(&default_hstate));
-		file = hugetlb_file_setup(HUGETLB_ANON_FILE, len, VM_NORESERVE,
-						&user, HUGETLB_ANONHUGE_INODE);
-		if (IS_ERR(file))
-			return PTR_ERR(file);
-	}
+//		len = ALIGN(len, huge_page_size(&default_hstate));
+//		file = hugetlb_file_setup(HUGETLB_ANON_FILE, len, VM_NORESERVE,
+//						&user, HUGETLB_ANONHUGE_INODE);
+//		if (IS_ERR(file))
+//			return PTR_ERR(file);
+//	}
 
 	/* Obtain the address to map to. we verify (or select) it and ensure
 	 * that it represents a valid section of the address space.
 	 */
+/* the three lines are unnecessary because we want keep addr unchanged 
 	addr = get_unmapped_area(file, addr, len, pgoff, flags);
 	if (addr & ~PAGE_MASK)
 		return addr;
-
+*/
 	/* Do simple checking here so the lower-level routines won't have
 	 * to. we assume access permissions have been handled by the open
 	 * of the memory object, so we don't do any here.
@@ -370,7 +378,29 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	if (error)
 		return error;
 
-	return mmap_region(file, addr, len, flags, vm_flags, pgoff);
+	/* doing minimum interference */
+	for (addr_tmp = addr; ; ) {
+		/* find the first VMA that overlaps the given interval */
+		vma_tmp = find_vma_intersection(mm, addr_tmp, len);
+		/* if no intersection found, job done! */
+		if (!vma_tmp) 
+			break;
+		/* find the ummapped area between each existing VMAs in [addr,addr+len] and use mmap_region to map these areas */
+		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_end < len) {
+			len_tmp = vma_tmp->vm_start - addr_tmp;
+			addr_ret = mmap_region(file, addr_tmp, len_tmp, flags, vm_flags, pgoff);
+			if (addr_ret < 0) {
+				AB_MSG("ERROR in propagate region: absys_propagate_region failed\n");
+				return -1;
+			}	
+		}
+		addr_tmp = vma_tmp->vm_end;
+		/* has walked through [addr,addr+len], job done! */
+		if (addr_tmp > len)
+			break;
+	}
+
+	return addr;
 }
 
 /* system call absys_mmap() */
