@@ -18,6 +18,7 @@
 
 /** pf handling for abt mappings **/
 #include <linux/abt_common.h>
+#include <linux/absys_thread_control.h>
 
 /*
  * Page fault error code bits:
@@ -1167,7 +1168,7 @@ void handle_abt_vmfault(struct task_struct *tsk, struct vm_area_struct *vma,
 	int fault;
 	struct mm_struct *mm;
 
-	//ab_assert(is_special(tsk));
+	ab_assert(is_special(tsk));
 
 	mm = tsk->mm;
 

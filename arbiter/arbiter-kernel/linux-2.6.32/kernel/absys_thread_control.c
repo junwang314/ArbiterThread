@@ -6,7 +6,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 
-#include "absys_thread_control.h"
+#include <linux/absys_thread_control.h>
 
 DEFINE_RWLOCK(ab_tasklist_lock);
 

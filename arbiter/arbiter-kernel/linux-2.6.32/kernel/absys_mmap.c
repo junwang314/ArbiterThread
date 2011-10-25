@@ -33,7 +33,7 @@
 #include <asm/mmu_context.h>
 
 #include "absys_mmap.h"
-#include "absys_thread_control.h"
+#include <linux/absys_thread_control.h>
 #include <linux/abt_common.h>
 
 #ifndef arch_mmap_check	  // these three lines are copied from mm/mmap.c to declare arch_mmap_check
