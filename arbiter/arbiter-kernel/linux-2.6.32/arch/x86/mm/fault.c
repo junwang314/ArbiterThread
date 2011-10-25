@@ -16,6 +16,9 @@
 #include <asm/pgalloc.h>		/* pgd_*(), ...			*/
 #include <asm/kmemcheck.h>		/* kmemcheck_*(), ...		*/
 
+/** pf handling for abt mappings **/
+#include <linux/abt_common.h>
+
 /*
  * Page fault error code bits:
  *
@@ -937,6 +940,12 @@ static int fault_in_kernel_space(unsigned long address)
 	return address >= TASK_SIZE_MAX;
 }
 
+
+
+void handle_abt_vmfault(struct task_struct *tsk, struct vm_area_struct *vma, 
+			unsigned long error_code, unsigned long address, 
+			struct pt_regs *regs);
+
 /*
  * This routine handles page faults.  It determines the address,
  * and the problem, and then passes it off to one of the appropriate
@@ -1076,6 +1085,16 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		bad_area(regs, error_code, address);
 		return;
 	}
+
+	/* 
+	 *  the faulting address belongs to a vm region that 
+	 *  was mapped by its arbiter thread 
+	 */
+	if (is_abt_vma(vma) && vma->vm_start <= address) {
+		handle_abt_vmfault(tsk, vma, error_code, address, regs);
+		return;
+	}
+
 	if (likely(vma->vm_start <= address))
 		goto good_area;
 	if (unlikely(!(vma->vm_flags & VM_GROWSDOWN))) {
@@ -1136,4 +1155,58 @@ good_area:
 	check_v8086_mode(regs, address, tsk);
 
 	up_read(&mm->mmap_sem);
+}
+
+
+
+void handle_abt_vmfault(struct task_struct *tsk, struct vm_area_struct *vma, 
+			unsigned long error_code, unsigned long address, 
+			struct pt_regs *regs)
+{
+	int write;
+	int fault;
+	struct mm_struct *mm;
+
+	//ab_assert(is_special(tsk));
+
+	mm = tsk->mm;
+
+	write = error_code & PF_WRITE;
+
+	if (unlikely(access_error(error_code, write, vma))) {
+		/*** 
+		 * In our model, this is a security violation! 
+		 ***/
+		AB_MSG("Absys: thread security violation pid = %lu, address = %lx, error_code = %lx, write = %x.\n", (unsigned long)tsk->pid, address, error_code, write);
+		
+		//use the default handling for bad permissions
+		bad_area_access_error(regs, error_code, address);
+		return;
+	}
+
+	/*
+	 * the page must be present in the arbiter's address space
+	 * update the page table according to arbiter's mapping
+	 * 
+	 */
+	fault = handle_mm_fault(mm, vma, address, write ? FAULT_FLAG_WRITE : 0);
+
+	if (unlikely(fault & VM_FAULT_ERROR)) {
+		mm_fault_error(regs, error_code, address, fault);
+		return;
+	}
+
+	if (fault & VM_FAULT_MAJOR) {
+		tsk->maj_flt++;
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MAJ, 1, 0,
+				     regs, address);
+	} else {
+		tsk->min_flt++;
+		perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS_MIN, 1, 0,
+				     regs, address);
+	}
+
+	check_v8086_mode(regs, address, tsk);
+
+	up_read(&mm->mmap_sem);	
 }
