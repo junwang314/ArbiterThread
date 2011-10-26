@@ -22,7 +22,7 @@ static void suicide()
 
 static void child_func(unsigned long addr)
 {
-	if (!absys_thread_control(AB_SET_ME_SPECIAL)) {
+	if (absys_thread_control(AB_SET_ME_SPECIAL)) {
 		printf("[PID %lu] set special thread failed.\n", 
 		       (unsigned long)getpid());
 		suicide();
@@ -46,8 +46,9 @@ extern int mapping_test()
 	pid_t pid[NUM_THREADS], wpid;
 	unsigned long addr;
 	unsigned long addr_to_map;
+	void *ret;
 
-	if (!absys_thread_control(AB_SET_ME_ARBITER)) {
+	if (absys_thread_control(AB_SET_ME_ARBITER)) {
 		printf("set arbiter failed!\n");
 		goto test_failed;
 	}
@@ -79,7 +80,8 @@ extern int mapping_test()
 
 
 	//pick one child
-	absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS, -1, 0);
+	ret = (void *)absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_SHARED|MAP_FIXED, -1, 0);
+	printf("absys_mmap returns %lx.\n", ret);
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Mon Oct  3 00:57:32 2011
+# Wed Oct 26 15:56:45 2011
 #
 # CONFIG_64BIT is not set
 CONFIG_X86_32=y
@@ -1596,9 +1596,6 @@ CONFIG_JME=m
 # CONFIG_NETDEV_10000 is not set
 # CONFIG_TR is not set
 # CONFIG_WLAN is not set
-# CONFIG_B43LEGACY_DMA_AND_PIO_MODE is not set
-# CONFIG_B43LEGACY_DMA_MODE is not set
-# CONFIG_B43LEGACY_PIO_MODE is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
@@ -3035,8 +3032,7 @@ CONFIG_EARLY_PRINTK=y
 # CONFIG_DEBUG_STACK_USAGE is not set
 # CONFIG_DEBUG_PER_CPU_MAPS is not set
 # CONFIG_X86_PTDUMP is not set
-CONFIG_DEBUG_RODATA=y
-# CONFIG_DEBUG_RODATA_TEST is not set
+# CONFIG_DEBUG_RODATA is not set
 # CONFIG_DEBUG_NX_TEST is not set
 # CONFIG_4KSTACKS is not set
 CONFIG_DOUBLEFAULT=y
