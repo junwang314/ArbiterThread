@@ -56,7 +56,7 @@ int old_function()
 }
 
 
-void mapping_test();
+int mapping_test();
 
 int main()
 {

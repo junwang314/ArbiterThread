@@ -1,3 +1,4 @@
+
 AB_ROOT=..
 
 #BUILD is defined in the included template
@@ -41,7 +42,7 @@ include $(AB_ROOT)/common/make.in
 
 
 $(BUILD)/syscall_test:$(SYSCALLTEST_OBJS)
-	$(CC) $? -o $@
+	$(CC) $^ -o $@
 
 run:$(BUILD)/syscall_test
 	$^
