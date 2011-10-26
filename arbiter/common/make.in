@@ -6,6 +6,7 @@ VPATH=$(BUILD)
 
 CC:=$(CC) $(CFLAGS)
 
+all:$(BUILD) $(BUILD_TARGETS)
 
 ########## Targets
 
@@ -27,7 +28,6 @@ $(BUILD)/%.o: %.c
 
 
 
-all:$(BUILD) $(BUILD_TARGETS)
 
 $(BUILD):
 	mkdir -p $(BUILD)

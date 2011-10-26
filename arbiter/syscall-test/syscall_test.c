@@ -7,7 +7,7 @@
 
 #include <ab_os_interface.h>
 
-int main()
+int old_function()
 { 
 	int aaa = 5;
 	pid_t pid1, pid2, pid3;
@@ -53,4 +53,12 @@ int main()
 		exit(0);
 	}
 //	return 0;
+}
+
+
+void mapping_test();
+
+int main()
+{
+	mapping_test();
 }

@@ -11,7 +11,8 @@ CFLAGS=\
 	$(INCS)
 
 SYSCALLTEST_SRCS=\
-	syscall_test.c
+	syscall_test.c \
+	mapping_test.c
 
 
 SYSCALLTEST_OBJS=\
