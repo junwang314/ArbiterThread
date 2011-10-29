@@ -388,7 +388,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 		/* find the ummapped area between each existing VMAs in [addr,addr+len] and use mmap_region to map these areas */
 		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_end < len) {
 			len_tmp = vma_tmp->vm_start - addr_tmp;
-			addr_ret = mmap_region(file, addr_tmp, len_tmp, flags, vm_flags, pgoff);
+			addr_ret = propagate_region(tsk, file, addr_tmp, len_tmp, flags, vm_flags, pgoff);
 			if (addr_ret < 0) {
 				AB_MSG("ERROR in propagate region: absys_propagate_region failed\n");
 				return -1;
