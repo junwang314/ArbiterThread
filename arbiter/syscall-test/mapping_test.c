@@ -30,11 +30,11 @@ static void child_func(unsigned long addr)
 	//wait parent 
 	sleep(10);
 	printf("doing some work...\n");
-	sleep(1);
+	sleep(1000);
 	//printf("work done\n");
 
 	//loop
-	for(;;);
+	//for(;;);
 }
 
 

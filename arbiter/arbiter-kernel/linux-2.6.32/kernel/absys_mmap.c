@@ -41,7 +41,7 @@
 #endif
 
 /* do_absys_mmap_pgoff()
- * The caller must hold down_write(&current->mm->mmap_sem).
+ * The caller must hold down_write(&tsk->mm->mmap_sem).
  */
 unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file, 
 				   unsigned long addr, unsigned long len, unsigned long prot,
@@ -59,7 +59,7 @@ unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file,
 	 * (the exception is when the underlying filesystem is noexec
 	 *  mounted, in which case we dont add PROT_EXEC.)
 	 */
-	if ((prot & PROT_READ) && (current->personality & READ_IMPLIES_EXEC))
+	if ((prot & PROT_READ) && (tsk->personality & READ_IMPLIES_EXEC))
 		if (!(file && (file->f_path.mnt->mnt_flags & MNT_NOEXEC)))
 			prot |= PROT_EXEC;
 
@@ -129,7 +129,7 @@ unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file,
 		unsigned long locked, lock_limit;
 		locked = len >> PAGE_SHIFT;
 		locked += mm->locked_vm;
-		lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
+		lock_limit = tsk->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
 		lock_limit >>= PAGE_SHIFT;
 		if (locked > lock_limit && !capable(CAP_IPC_LOCK))
 			return -EAGAIN;
@@ -204,11 +204,11 @@ unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file,
 	if (error)
 		return error;
 
-	return mmap_region(file, addr, len, flags, vm_flags, pgoff);
+	return absys_mmap_region(tsk, file, addr, len, flags, vm_flags, pgoff);
 }
 
 /* do_absys_vma_propagate()
- * The caller must hold down_write(&current->mm->mmap_sem).
+ * The caller must hold down_write(&tsk->mm->mmap_sem).
  */
 unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file, 
 				      unsigned long addr, unsigned long len, unsigned long prot,
@@ -229,7 +229,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	 * (the exception is when the underlying filesystem is noexec
 	 *  mounted, in which case we dont add PROT_EXEC.)
 	 */
-	if ((prot & PROT_READ) && (current->personality & READ_IMPLIES_EXEC))
+	if ((prot & PROT_READ) && (tsk->personality & READ_IMPLIES_EXEC))
 		if (!(file && (file->f_path.mnt->mnt_flags & MNT_NOEXEC)))
 			prot |= PROT_EXEC;
 
@@ -293,6 +293,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
 			VM_AB_CONTROL | PROT_NONE; // ontrolled VMA indicator and none access as default
+	AB_INFO("do_absys_vma_propagate: vm_flags = %x\n", vm_flags);
 
 	if (flags & MAP_LOCKED)
 		if (!can_do_mlock())
@@ -303,7 +304,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 		unsigned long locked, lock_limit;
 		locked = len >> PAGE_SHIFT;
 		locked += mm->locked_vm;
-		lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
+		lock_limit = tsk->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
 		lock_limit >>= PAGE_SHIFT;
 		if (locked > lock_limit && !capable(CAP_IPC_LOCK))
 			return -EAGAIN;
@@ -411,7 +412,7 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 {	
 	AB_INFO("absys_mmap system call received. argments = (%ld, %ld, %ld, %ld, %ld, %ld, %ld,)\n", (unsigned long) childpid, addr, len, prot, flags, fd, pgoff);
 
-	unsigned long ret_target_child, ret_other_child;
+	long ret_target_child, ret_other_child;
 	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm_target_child, *mm_other_child;
 	struct file *file = NULL;
@@ -424,8 +425,9 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 
 	/* find target task_struct by pid */
 	tsk_target_child = get_child_task_by_pid(childpid);
+	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
-	/* check if called by ARBITER and do mmap for child thread in its control group */
+	/* check if called by ARBITER and then do mmap for child thread in its control group */
 	if (is_arbiter(current) && (current == find_my_arbiter(tsk_target_child))) {
 		/* for child thread specified by childpid:
 		 * set VMA.
@@ -434,28 +436,34 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 		down_write(&mm_target_child->mmap_sem);
 		ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
 		up_write(&mm_target_child->mmap_sem);
-		if (ret_target_child < 0)
+		if (ret_target_child < 0) {
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
 			return -1;
+		}
 
 		/* for all the other child threads in the control group:  
 		 * 1) go through every child
 		 * 2) reserve correspongding VMA with nimimux interference
 		 */ 
 		list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
+		/* if it is arbiter thread or target child thread, continue to the next loop */
+		if (tsk_other_child == current || tsk_other_child == tsk_target_child) {
+			continue;
+		}
 		mm_other_child = tsk_other_child->mm;
 		down_write(&mm_other_child->mmap_sem);
 		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
 		up_write(&mm_other_child->mmap_sem);
-		if (ret_other_child < 0)
+		if (ret_other_child < 0) {
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
 			return -1;
+		}
 		}
 	}
 	else
 		return -EPERM;		// EPERM means operation not permitted
 
-	return ret_target_child;
+	return (unsigned long)ret_target_child;
 }
 
 /* system call absys_brk() */
