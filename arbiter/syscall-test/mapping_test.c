@@ -28,14 +28,14 @@ static void child_func(unsigned long addr)
 		suicide();
 	}
 	//wait parent 
-	sleep(10);
+	sleep(5);
 	printf("doing some work...\n");
-	sleep(10);
+	sleep(5);
 	//printf("work done\n");
 	int a;
-	int *p = (int *)(addr - 64);
+	unsigned long *p = (unsigned long *)((addr - 64) & 0xfffff000);
 	a = *p; //read
-	printf("[PID %lu] read from addr: %d\n",(unsigned long)getpid(), a);
+	printf("[PID %lu] read from addr (%lx): %lx\n",(unsigned long)getpid(), (unsigned long)p, *p);
 //	*p = a; //write
 
 	sleep(1000);
@@ -86,9 +86,15 @@ extern int mapping_test()
 	
 	addr_to_map = (addr - 32) & 0xfffff000;
 
+	*((unsigned long *)addr_to_map) = 0xdeadbeef;
+
+	printf("value %lx.\n", *((unsigned long *)addr_to_map));
+
 	//pick one child
-	ret = (void *)absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_SHARED|MAP_FIXED, -1, 0);
+	ret = (void *)absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	printf("absys_mmap returns %lx.\n", ret);
+
+	printf("value %lx.\n", *((unsigned long *)addr_to_map));
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);

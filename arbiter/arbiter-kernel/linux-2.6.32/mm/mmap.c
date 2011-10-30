@@ -1345,6 +1345,10 @@ munmap_back:
 	vma->vm_page_prot = vm_get_page_prot(vm_flags);
 	vma->vm_pgoff = pgoff;
 
+	ab_assert(vma->vm_flags & VM_AB_CONTROL);
+	vma->vm_ops = &ab_vm_ops;
+
+
 	if (file) {
 		error = -EINVAL;
 		if (vm_flags & (VM_GROWSDOWN|VM_GROWSUP))
@@ -1439,6 +1443,8 @@ unsigned long propagate_region( struct task_struct *tsk, struct file *file,
 munmap_back:
 	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
 	if (vma && vma->vm_start < addr + len) {
+		//never reach here
+		ab_assert(0);
 		if (do_munmap(mm, addr, len))
 			return -ENOMEM;
 		goto munmap_back;
@@ -1499,6 +1505,9 @@ munmap_back:
 	vma->vm_flags = vm_flags;
 	vma->vm_page_prot = vm_get_page_prot(vm_flags);
 	vma->vm_pgoff = pgoff;
+
+	ab_assert(vma->vm_flags & VM_AB_CONTROL);
+	vma->vm_ops = &ab_vm_ops;
 
 	if (file) {
 		error = -EINVAL;

@@ -24,7 +24,7 @@
 
 
 /*********** VMA definitions *********/
-#define VM_AB_CONTROL	VM_SAO
+#define VM_AB_CONTROL	(VM_SAO)
 
 
 //check to see if a vma is mapped by the arbiter thread
@@ -32,6 +32,9 @@ static inline int is_abt_vma(struct vm_area_struct *vma)
 {
 	return (vma->vm_flags & VM_AB_CONTROL);
 }
+
+
+extern const struct vm_operations_struct ab_vm_ops;
 
 
 #endif //_ABT_COMMON_H

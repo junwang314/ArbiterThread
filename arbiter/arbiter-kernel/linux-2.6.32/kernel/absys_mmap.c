@@ -118,7 +118,7 @@ unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file,
 	 */
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
-			VM_AB_CONTROL; // controlled VMA indicator
+			VM_AB_CONTROL | VM_SHARED; // controlled VMA indicator
 	AB_INFO("do_absys_mmap_pgoff: vm_flags = %x\n", vm_flags);
 
 	if (flags & MAP_LOCKED)
@@ -293,7 +293,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	 */
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
-			VM_AB_CONTROL; // ontrolled VMA indicator
+			VM_AB_CONTROL | VM_SHARED; // ontrolled VMA indicator
 	vm_flags = vm_flags & 0xfffffff0; // none access as default
 
 	AB_INFO("do_absys_vma_propagate: vm_flags = %x\n", vm_flags);
@@ -414,12 +414,13 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 				unsigned long flags, unsigned long fd, 
 				unsigned long pgoff)
 {	
-	AB_INFO("absys_mmap system call received. argments = (%ld, %ld, %ld, %ld, %ld, %ld, %ld,)\n", (unsigned long) childpid, addr, len, prot, flags, fd, pgoff);
-
+	
 	long ret_target_child, ret_other_child;
 	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm_target_child, *mm_other_child;
 	struct file *file = NULL;
+
+	AB_INFO("absys_mmap system call received. argments = (%ld, %ld, %ld, %ld, %ld, %ld, %ld,)\n", (unsigned long) childpid, addr, len, prot, flags, fd, pgoff);
 
 	/* check if MAP_ANONYMOUS is assigned: if not, return error */
 	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
@@ -543,6 +544,6 @@ int abmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 
 //callback functions
-static const struct vm_operations_struct ab_vm_ops = {
+const struct vm_operations_struct ab_vm_ops = {
 	.fault                   = abmap_fault,
 };
