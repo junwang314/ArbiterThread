@@ -32,9 +32,11 @@ static void child_func(unsigned long addr)
 	printf("doing some work...\n");
 	sleep(10);
 	//printf("work done\n");
-	int *p = &addr;
-	*p = 2;
-	printf("[PID %lu] read from addr: %d\n",(unsigned long)getpid(), *p);
+	int a;
+	int *p = (int *)(addr - 64);
+	a = *p; //read
+	printf("[PID %lu] read from addr: %d\n",(unsigned long)getpid(), a);
+	*p = a; //write
 
 	sleep(1000);
 	//loop
