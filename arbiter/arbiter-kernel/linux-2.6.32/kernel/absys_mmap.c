@@ -294,7 +294,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
 			VM_AB_CONTROL; // ontrolled VMA indicator
-//	vm_flags = vm_flags & 0xfffffff0; // none access as default
+	vm_flags = vm_flags & 0xfffffff0; // none access as default
 
 	AB_INFO("do_absys_vma_propagate: vm_flags = %x\n", vm_flags);
 
@@ -382,15 +382,14 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	if (error)
 		return error;
 
-	/* find the first VMA that overlaps the given interval */
-	vma_tmp = find_vma_intersection(mm, addr, len);
-	/* if no intersection found, map all of [addr, addr+len] */
-	if (!vma_tmp) {
-		AB_MSG("no intersection found\n");
-		goto out;
-	}
-	/* if there are intersections, do minimum interference */
+	/* doing minimum interference */
 	for (addr_tmp = addr; ; ) {		
+		/* find the first VMA that overlaps the given interval */
+		vma_tmp = find_vma_intersection(mm, addr, len);
+		/* if no intersection found, job done! */
+		if (!vma_tmp) {
+			break;
+		}
 		/* find the ummapped area between each existing VMAs in [addr,addr+len] and use mmap_region to map these areas */
 		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_end < addr + len) {
 			len_tmp = vma_tmp->vm_start - addr_tmp;
@@ -398,18 +397,15 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 			}	
 		addr_tmp = vma_tmp->vm_end;
 		/* has walked through [addr,addr+len], job done! */
-		if (addr_tmp > len)
+		if (addr_tmp > addr + len)
 			break;
 	}
-	return addr;
-
-out:	
+	/* has walked through [addr,addr+len] and mapped all the holes */
+	if (addr_tmp > addr + len) {
+		return addr;
+	}	
+	/* otherwise, no intersections found, therefore map all [addr,addr+len] */
 	return propagate_region(tsk, file, addr, len, flags, vm_flags, pgoff);
-//	if (addr_ret < 0) {
-//		AB_MSG("ERROR in propagate region: absys_propagate_region failed\n");
-//		return -1;
-//	}
-//	return addr_ret;
 }
 
 /* system call absys_mmap() */

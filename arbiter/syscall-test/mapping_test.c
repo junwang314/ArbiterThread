@@ -36,7 +36,7 @@ static void child_func(unsigned long addr)
 	int *p = (int *)(addr - 64);
 	a = *p; //read
 	printf("[PID %lu] read from addr: %d\n",(unsigned long)getpid(), a);
-	*p = a; //write
+//	*p = a; //write
 
 	sleep(1000);
 	//loop

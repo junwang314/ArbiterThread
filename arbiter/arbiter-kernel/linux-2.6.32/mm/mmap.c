@@ -1445,9 +1445,10 @@ munmap_back:
 	}
 
 	/* Check against address space limit. */
-	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
+	if (!may_expand_vm(mm, len >> PAGE_SHIFT)) {
 		AB_MSG("ERROR in propagate_region: cannot expand vm\n");
 		return -ENOMEM;
+	}
 
 	/*
 	 * Set 'VM_NORESERVE' if we should not account for the
