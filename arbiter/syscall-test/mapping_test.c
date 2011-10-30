@@ -10,7 +10,7 @@
 
 
 //number of child thread
-#define NUM_THREADS 20
+#define NUM_THREADS 5
 
 
 static void suicide()
@@ -91,7 +91,7 @@ extern int mapping_test()
 	printf("value %lx.\n", *((unsigned long *)addr_to_map));
 
 	//pick one child
-	ret = (void *)absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
+	ret = (void *)absys_mmap(pid[1], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	printf("absys_mmap returns %lx.\n", ret);
 
 	printf("value %lx.\n", *((unsigned long *)addr_to_map));
