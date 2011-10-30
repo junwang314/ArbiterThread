@@ -1435,14 +1435,14 @@ unsigned long propagate_region( struct task_struct *tsk, struct file *file,
 
 /* the following lines are unnecessary because do_absys_vma_propagate() has done the minimum interference checking */
 //	/* Clear old maps */
-//	error = -ENOMEM;
-//munmap_back:
-//	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
-//	if (vma && vma->vm_start < addr + len) {
-//		if (do_munmap(mm, addr, len))
-//			return -ENOMEM;
-//		goto munmap_back;
-//	}
+	error = -ENOMEM;
+munmap_back:
+	vma = find_vma_prepare(mm, addr, &prev, &rb_link, &rb_parent);
+	if (vma && vma->vm_start < addr + len) {
+		if (do_munmap(mm, addr, len))
+			return -ENOMEM;
+		goto munmap_back;
+	}
 
 	/* Check against address space limit. */
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
