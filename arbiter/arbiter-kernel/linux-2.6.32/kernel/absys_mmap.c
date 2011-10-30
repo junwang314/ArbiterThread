@@ -385,7 +385,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	/* doing minimum interference */
 	for (addr_tmp = addr; ; ) {		
 		/* find the first VMA that overlaps the given interval */
-		vma_tmp = find_vma_intersection(mm, addr, len);
+		vma_tmp = find_vma_intersection(mm, addr_tmp, addr + len);
 		/* if no intersection found, job done! */
 		if (!vma_tmp) {
 			break;
@@ -397,11 +397,11 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 			}	
 		addr_tmp = vma_tmp->vm_end;
 		/* has walked through [addr,addr+len], job done! */
-		if (addr_tmp > addr + len)
+		if (addr_tmp >= addr + len)
 			break;
 	}
 	/* has walked through [addr,addr+len] and mapped all the holes */
-	if (addr_tmp > addr + len) {
+	if (addr_tmp >= addr + len) {
 		return addr;
 	}	
 	/* otherwise, no intersections found, therefore map all [addr,addr+len] */
