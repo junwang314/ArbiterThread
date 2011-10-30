@@ -2699,6 +2699,7 @@ static int do_abt_anon_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	spinlock_t *ptl;
 	pte_t entry;
 
+	/*
 	if (!(flags & FAULT_FLAG_WRITE)) {
 		entry = pte_mkspecial(pfn_pte(my_zero_pfn(address),
 						vma->vm_page_prot));
@@ -2707,7 +2708,7 @@ static int do_abt_anon_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		if (!pte_none(*page_table))
 			goto unlock;
 		goto setpte;
-	}
+	}*/
 
 	/* Allocate our own private page. */
 	pte_unmap(page_table);
