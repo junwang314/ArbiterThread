@@ -118,7 +118,8 @@ unsigned long do_absys_mmap_pgoff( struct task_struct *tsk, struct file *file,
 	 */
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
-			VM_AB_CONTROL | VM_LOCKED; // controlled VMA indicator and lock VMA in RAM
+			VM_AB_CONTROL; // controlled VMA indicator
+	AB_INFO("do_absys_mmap_pgoff: vm_flags = %x\n", vm_flags);
 
 	if (flags & MAP_LOCKED)
 		if (!can_do_mlock())
@@ -292,7 +293,9 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 	 */
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
-			VM_AB_CONTROL | PROT_NONE; // ontrolled VMA indicator and none access as default
+			VM_AB_CONTROL; // ontrolled VMA indicator
+	vm_flags = vm_flags & 0xfffffff0; // none access as default
+
 	AB_INFO("do_absys_vma_propagate: vm_flags = %x\n", vm_flags);
 
 	if (flags & MAP_LOCKED)
@@ -433,9 +436,11 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 		 * set VMA.
 		 */
 		mm_target_child = tsk_target_child->mm;
+		AB_MSG("set VMA for target thread %d:\n", tsk_target_child->pid);
 		down_write(&mm_target_child->mmap_sem);
 		ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
 		up_write(&mm_target_child->mmap_sem);
+		AB_MSG("VMA starts @ %lx\n", ret_target_child);
 		if (ret_target_child < 0) {
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
 			return -1;
@@ -451,9 +456,11 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 			continue;
 		}
 		mm_other_child = tsk_other_child->mm;
+		AB_MSG("propagate VMA for child thread %d:\n", tsk_other_child->pid);
 		down_write(&mm_other_child->mmap_sem);
 		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
 		up_write(&mm_other_child->mmap_sem);
+		AB_MSG("VMA starts @ %lx\n", ret_other_child);
 		if (ret_other_child < 0) {
 			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
 			return -1;

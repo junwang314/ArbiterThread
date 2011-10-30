@@ -30,9 +30,13 @@ static void child_func(unsigned long addr)
 	//wait parent 
 	sleep(10);
 	printf("doing some work...\n");
-	sleep(1000);
+	sleep(10);
 	//printf("work done\n");
+	int *p = &addr;
+	*p = 2;
+	printf("[PID %lu] read from addr: %d\n",(unsigned long)getpid(), *p);
 
+	sleep(1000);
 	//loop
 	//for(;;);
 }
@@ -55,6 +59,8 @@ extern int mapping_test()
      
 	addr = sbrk(0) + 20*4096;
 
+	printf("sbrk(0) = %lx, addr = %lx.\n", sbrk(0), addr)
+;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		pid[i] = fork();
 		if (pid[i] < 0) {
@@ -77,7 +83,6 @@ extern int mapping_test()
 	i = * (int *)(addr - 32);
 	
 	addr_to_map = (addr - 32) & 0xfffff000;
-
 
 	//pick one child
 	ret = (void *)absys_mmap(pid[5], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_SHARED|MAP_FIXED, -1, 0);
