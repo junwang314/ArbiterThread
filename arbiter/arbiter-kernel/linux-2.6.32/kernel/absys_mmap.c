@@ -479,7 +479,62 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 //...
 
 
+/* specific pf handling for the ab control vm region,
+ * the shared page is retrieved from the arbiter thread and
+ * stored in the vmf struct
+ */
+struct page *abmap_get_page(struct vm_area_struct *vma, unsigned long address)
+{
+	int ret = 0;
+	struct task_struct *tsk = current;
+	struct page *page = NULL;
+	struct task_struct *abt;
+	struct mm_struct *mm;
 
+	//the faulting task must be a child task in a control group
+	ab_assert(is_special(tsk));
+	
+	//retrive the arbiter thread
+	abt = find_my_arbiter(tsk);
+	ab_assert(abt);
+
+	mm = abt->mm;
+	ab_assert(mm);
+
+	//hold the mmap read lock of the abthread
+	down_read(&mm->mmap_sem);
+	//get the exact page from the abt thread
+	ret = get_user_pages(abt, mm, 
+			     (unsigned  long)address, 
+			     1,                     //only one page
+			     1,                     //TODO: not sure about this flag  
+			     0, 
+			     &page,
+			     NULL);
+
+	if (ret != 1 || !page) {
+		up_read(&mm->mmap_sem);
+		AB_MSG("abmap_fault: the request page is not found in arbiter's address space! faulting child pid = %lu, abiter_pid = %lu, address = %lx, page = %lx, ret = %d.\n",
+		       (unsigned long)tsk->pid,
+		       (unsigned long)abt->pid,
+		       (unsigned long)address,
+		       (unsigned long)page,
+		       ret);
+		return NULL;
+	}
+
+	up_read(&mm->mmap_sem);
+
+	AB_INFO("abmap_fault: found the request page in arbiter's address space! faulting child pid = %lu, abiter_pid = %lu, address = %lx, page = %lx, ret = %d.\n",
+		(unsigned long)tsk->pid,
+		(unsigned long)abt->pid,
+		(unsigned long)address,
+		(unsigned long)page,
+		ret);
+
+	return page;
+	
+}
 
 
 
@@ -545,5 +600,6 @@ int abmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 //callback functions
 const struct vm_operations_struct ab_vm_ops = {
-	.fault                   = abmap_fault,
+	//.fault                   = abmap_fault,
+	.fault                   = NULL,
 };

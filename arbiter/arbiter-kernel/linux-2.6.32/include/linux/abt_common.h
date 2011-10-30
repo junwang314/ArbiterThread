@@ -34,7 +34,10 @@ static inline int is_abt_vma(struct vm_area_struct *vma)
 }
 
 
+
 extern const struct vm_operations_struct ab_vm_ops;
 
+
+struct page *abmap_get_page(struct vm_area_struct *vma, unsigned long address);
 
 #endif //_ABT_COMMON_H
