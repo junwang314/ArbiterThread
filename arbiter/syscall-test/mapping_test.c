@@ -89,6 +89,7 @@ extern int mapping_test()
 
 	// pick one child
 	ret[0] = (void *)absys_mmap(pid[1], (void *) addr_to_map, 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
+	ret[0] = (void *)absys_mmap(pid[1], (void *) (addr_to_map-4096), 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	ret[1] = (void *)absys_mmap(pid[2], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	ret[2] = (void *)absys_mmap(pid[3], (void *) (addr_to_map-4096), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	ret[3] = (void *)absys_mmap(pid[4], (void *) (addr_to_map-4096), 2*4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
