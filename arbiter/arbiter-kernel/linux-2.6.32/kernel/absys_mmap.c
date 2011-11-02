@@ -391,7 +391,7 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 			break;
 		}
 		/* find the ummapped area between each existing VMAs in [addr,addr+len] and use mmap_region to map these areas */
-		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_end < addr + len) {
+		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_start < addr + len) {
 			len_tmp = vma_tmp->vm_start - addr_tmp;
 			addr_ret = propagate_region(tsk, file, addr_tmp, len_tmp, flags, vm_flags, pgoff);
 			}	
