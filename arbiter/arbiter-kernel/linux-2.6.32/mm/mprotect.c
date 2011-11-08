@@ -29,6 +29,8 @@
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 
+#include <linux/abt_common.h>
+
 #ifndef pgprot_modify
 static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
 {
@@ -279,6 +281,13 @@ SYSCALL_DEFINE3(mprotect, unsigned long, start, size_t, len,
 
 	for (nstart = start ; ; ) {
 		unsigned long newflags;
+
+		/* arbiterthread: if the VMA is protected, terminate! */
+		if (vma->vm_flags & VM_AB_CONTROL) {
+			error = -EACCES;
+			AB_MSG("permission denied: mprotect() trys to access protected VMA\n");
+			goto out;
+		}
 
 		/* Here we know that  vma->vm_start <= nstart < vma->vm_end. */
 
