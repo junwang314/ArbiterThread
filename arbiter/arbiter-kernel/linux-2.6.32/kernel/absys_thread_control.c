@@ -7,6 +7,7 @@
 #include <linux/list.h>
 
 #include <linux/absys_thread_control.h>
+#include <linux/abt_common.h>
 
 DEFINE_RWLOCK(ab_tasklist_lock);
 
@@ -27,6 +28,10 @@ asmlinkage int sys_absys_thread_control(int ab_role)
 		write_lock(&ab_tasklist_lock);
 		list_add(&current->ab_tasks, &current->parent->ab_tasks);
 		write_unlock(&ab_tasklist_lock);
+
+		/* initialize the starting point @ 0x80000000 for ab_heap */
+		current->mm->start_ab_brk = AB_HEAP_START;
+		current->mm->ab_brk = AB_HEAP_START;
 
 		printk("\nThis is special thread\n");
 	}

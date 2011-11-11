@@ -23,6 +23,10 @@
 	}
 
 
+/*************** abheap **************/
+#define AB_HEAP_START 0x80000000
+
+
 /*********** VMA definitions *********/
 #define VM_AB_CONTROL	(VM_SAO)
 

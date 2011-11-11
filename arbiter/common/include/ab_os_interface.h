@@ -10,6 +10,8 @@
 //new system call
 #define __NR_absys_mmap			337
 #define __NR_absys_thread_control	338
+#define __NR_absys_brk			339
+#define __NR_absys_munmap		340
 
 //ab_thread_control_flag
 #define AB_SET_ME_SPECIAL	0x00000000
@@ -32,5 +34,16 @@ static inline void *absys_mmap (pid_t pid, void *addr, size_t len, int prot,
 static inline int absys_thread_control(int ab_thread_control_flag)
 {
 	return syscall(__NR_absys_thread_control, ab_thread_control_flag);
+}
+
+static inline int absys_brk(pid_t pid, void *addr)
+{
+	unsigned long ab_brk = (unsigned long)addr;
+	return (syscall(__NR_absys_brk, pid, brk) == brk) ? 0 : -1;
+}
+
+static inline int absys_munmap(pid_t pid, void *addr, size_t length)
+{
+	return syscall(__NR_absys_munmap, pid, addr, length);
 }
 #endif //_OS_INTERFACE_H

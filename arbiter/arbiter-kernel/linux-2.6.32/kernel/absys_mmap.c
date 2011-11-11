@@ -433,50 +433,121 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
 	/* check if called by ARBITER and then do mmap for child thread in its control group */
-	if (is_arbiter(current) && (current == find_my_arbiter(tsk_target_child))) {
-		/* for child thread specified by childpid:
-		 * set VMA.
-		 */
-		mm_target_child = tsk_target_child->mm;
-		AB_MSG("set VMA for target thread %d:\n", tsk_target_child->pid);
-		down_write(&mm_target_child->mmap_sem);
-		ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
-		up_write(&mm_target_child->mmap_sem);
-		AB_MSG("VMA starts @ %lx\n", ret_target_child);
-		if (ret_target_child < 0) {
-			AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
-			return -1;
-		}
-
-		/* for all the other child threads in the control group:  
-		 * 1) go through every child
-		 * 2) reserve correspongding VMA with nimimux interference
-		 */ 
-		list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
-		/* if it is arbiter thread or target child thread, continue to the next loop */
-		if (tsk_other_child == current || tsk_other_child == tsk_target_child) {
-			continue;
-		}
-		mm_other_child = tsk_other_child->mm;
-		AB_MSG("propagate VMA for child thread %d:\n", tsk_other_child->pid);
-		down_write(&mm_other_child->mmap_sem);
-		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
-		up_write(&mm_other_child->mmap_sem);
-		AB_MSG("VMA starts @ %lx\n", ret_other_child);
-		if (ret_other_child < 0) {
-			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
-			return -1;
-		}
-		}
-	}
-	else
+	if (!is_arbiter(current) || current != find_my_arbiter(tsk_target_child)) {
 		return -EPERM;		// EPERM means operation not permitted
+	}	
+
+	/* for child thread specified by childpid:
+	 * set VMA.
+	 */
+	mm_target_child = tsk_target_child->mm;
+	AB_MSG("set VMA for target thread %d:\n", tsk_target_child->pid);
+	down_write(&mm_target_child->mmap_sem);
+	ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
+	up_write(&mm_target_child->mmap_sem);
+	AB_MSG("VMA starts @ %lx\n", ret_target_child);
+	if (ret_target_child < 0) {
+		AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
+		return -1;
+	}
+
+	/* for all the other child threads in the control group:  
+	 * 1) go through every child
+	 * 2) reserve correspongding VMA with nimimux interference
+	 */ 
+	list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
+	/* if it is arbiter thread or target child thread, continue to the next loop */
+	if (tsk_other_child == current || tsk_other_child == tsk_target_child) {
+		continue;
+	}
+	mm_other_child = tsk_other_child->mm;
+	AB_MSG("propagate VMA for child thread %d:\n", tsk_other_child->pid);
+	down_write(&mm_other_child->mmap_sem);
+	ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
+	up_write(&mm_other_child->mmap_sem);
+	AB_MSG("VMA starts @ %lx\n", ret_other_child);
+	if (ret_other_child < 0) {
+		AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
+		return -1;
+	}
 
 	return (unsigned long)ret_target_child;
 }
 
 /* system call absys_brk() */
-//...
+asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
+{
+	unsigned long rlim, retval;
+	unsigned long newbrk, oldbrk;
+	struct mm_struct *mm;
+	unsigned long min_brk;
+	struct task_struct *tsk;
+
+	tsk = get_child_task_by_pid(childpid);
+	mm = tsk->mm;
+
+	/* check if called by ARBITER and then do brk for child thread in its control group */
+	if (!is_arbiter(current) || current != find_my_arbiter(tsk)) {
+		return -EPERM;		// EPERM means operation not permitted
+	}
+
+	down_write(&mm->mmap_sem);
+/* unnecassary code from brk()
+#ifdef CONFIG_COMPAT_BRK
+	min_brk = mm->end_code;
+#else
+	min_brk = mm->start_brk;
+#endif
+*/	
+	min_brk = mm->start_ab_brk;
+	if (ab_brk < min_brk)
+		goto out;
+
+/* it seems that we do not need the following code, which check the against the maximum heap size */
+	/*
+	 * Check against rlimit here. If this check is done later after the test
+	 * of oldbrk with newbrk then it can escape the test and let the data
+	 * segment grow beyond its set limit the in case where the limit is
+	 * not page aligned -Ram Gupta
+	 */
+/*	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
+	if (rlim < RLIM_INFINITY && (ab_brk - mm->start_ab_brk) +
+			(mm->end_data - mm->start_data) > rlim)
+		goto out;
+*/
+	newbrk = PAGE_ALIGN(ab_brk);
+	oldbrk = PAGE_ALIGN(mm->ab_brk);
+	if (oldbrk == newbrk)
+		goto set_ab_brk;
+
+	/* Always allow shrinking ab_brk. */
+	if (ab_brk <= mm->ab_brk) {
+		if (!do_munmap(mm, newbrk, oldbrk-newbrk))
+			goto set_ab_brk;
+		goto out;
+	}
+
+	/* Check against existing mmap mappings. */
+	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
+		goto out;
+
+	/* Ok, looks good - let it rip. */
+	if (do_absys_brk(tsk, oldbrk, newbrk-oldbrk) != oldbrk)
+		goto out;
+set_ab_brk:
+	mm->ab_brk = ab_brk;
+out:
+	retval = mm->ab_brk;
+	up_write(&mm->mmap_sem);
+	return retval;
+}
+
+
+/* system call absys_munmap() */
+asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t length)
+{
+	return 0;
+}
 
 
 /* specific pf handling for the ab control vm region,
