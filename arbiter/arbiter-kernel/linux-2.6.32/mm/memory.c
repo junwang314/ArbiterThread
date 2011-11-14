@@ -2686,7 +2686,7 @@ oom:
 }
 
 
-/*
+/* ArbiterThread: handle abt anonymous page fualt
  * We enter with non-exclusive mmap_sem (to exclude vma changes,
  * but allow concurrent faults), and pte mapped but not yet locked.
  * We return with mmap_sem still held, but pte unmapped and unlocked.
@@ -3009,7 +3009,7 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 	entry = *pte;
 	if (!pte_present(entry)) {
 		if (pte_none(entry)) {
-		  	if (is_abt_vma(vma)) {
+		  	if (is_abt_vma(vma)) {		// ArbiterThread: handle abt anonymous page
 				return do_abt_anon_page(mm, vma, address,
 						 pte, pmd, flags);
 			}

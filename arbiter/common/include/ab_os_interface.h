@@ -36,10 +36,11 @@ static inline int absys_thread_control(int ab_thread_control_flag)
 	return syscall(__NR_absys_thread_control, ab_thread_control_flag);
 }
 
-static inline int absys_brk(pid_t pid, void *addr)
+static inline unsigned long absys_brk(pid_t pid, void *addr)
 {
 	unsigned long ab_brk = (unsigned long)addr;
-	return (syscall(__NR_absys_brk, pid, brk) == brk) ? 0 : -1;
+	return syscall(__NR_absys_brk, pid, ab_brk);
+	//return (syscall(__NR_absys_brk, pid, brk) == brk) ? 0 : -1;
 }
 
 static inline int absys_munmap(pid_t pid, void *addr, size_t length)

@@ -18,4 +18,5 @@ extern unsigned long absys_mmap_region( struct task_struct *, struct file *,
 				unsigned long, unsigned long, unsigned long,
 				unsigned int, unsigned long);
 extern unsigned long do_absys_brk(struct task_struct *, unsigned long, unsigned long);
+extern unsigned long do_absys_brk_propagate(struct task_struct *, unsigned long, unsigned long);
 #endif //_ABSYS_MMAP_H

@@ -33,13 +33,13 @@ static void child_func(unsigned long addr)
 	sleep(5);
 	mprotect((void *) addr, 4096, PROT_READ|PROT_WRITE);
 	//printf("work done\n");
-	int a;
-	unsigned long *p = (unsigned long *) addr;
+/*	int a;
+	unsigned long *p = (unsigned long *) (addr -4096);
 	a = *p; //read 
 	printf("[PID %lu] read from addr (%lx): %lx\n",(unsigned long)getpid(), (unsigned long)p, *p);
 	*p = a; //write
 	printf("[PID %lu] write to addr (%lx): %lx\n",(unsigned long)getpid(), (unsigned long)p, *p);
-
+*/
 
 	sleep(1000);
 	//loop
@@ -54,7 +54,7 @@ extern int mapping_test()
 	int normal = 0;
 	pid_t pid[NUM_THREADS], wpid;
 	unsigned long addr;
-	unsigned long addr_to_map;
+	unsigned long addr_to_map, addr_to_brk;
 	void *ret[NUM_THREADS];
 
 	if (absys_thread_control(AB_SET_ME_ARBITER)) {
@@ -62,13 +62,14 @@ extern int mapping_test()
 		goto test_failed;
 	}
      
-	addr = sbrk(0) + 20*4096;
-	printf("sbrk(0) = %lx, addr = %lx.\n", sbrk(0), addr);
+	addr = (unsigned long)sbrk(0) + 20*4096;
+	printf("sbrk(0) = %lx, addr = %lx.\n", (unsigned long)sbrk(0), addr);
 	
 	addr_to_map = (addr - 4096) & 0xfffff000; 
 	printf("mapping to address %lx.\n", addr_to_map);
 
-
+	addr_to_brk = 0x80003000;
+	
 	for (i = 0; i < NUM_THREADS; ++i) {
 		pid[i] = fork();
 		if (pid[i] < 0) {
@@ -77,7 +78,7 @@ extern int mapping_test()
 		}
 		if(pid[i] == 0) {
 			printf("child process %i created, pid = %lu.\n", i, (unsigned long)getpid());
-			child_func(addr_to_map);
+			child_func(addr_to_brk);
 			exit(0);
 		}		
 	}
@@ -85,22 +86,25 @@ extern int mapping_test()
 	sleep(2);
 
 	
-	brk(addr);
-	*((unsigned long *)addr_to_map) = 0xdeadbeef;
-	printf("touch the memory and set value %lx.\n", *((unsigned long *)addr_to_map));
+	//brk((void *)addr);
+	//*((unsigned long *)addr_to_map) = 0xdeadbeef;
+	//printf("touch the memory and set value %lx.\n", *((unsigned long *)addr_to_map));
 
 	// pick one child
-	ret[0] = (void *)absys_mmap(pid[1], (void *) addr_to_map, 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
+	//ret[0] = (void *)absys_mmap(pid[1], (void *) addr_to_map, 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
 	//ret[0] = (void *)absys_mmap(pid[1], (void *) (addr_to_map-4096), 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
-	ret[1] = (void *)absys_mmap(pid[2], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
-	ret[2] = (void *)absys_mmap(pid[3], (void *) (addr_to_map-4096), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
+	//ret[1] = (void *)absys_mmap(pid[2], (void *) addr_to_map, 4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
+	//ret[2] = (void *)absys_mmap(pid[3], (void *) (addr_to_map-4096), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	//ret[3] = (void *)absys_mmap(pid[4], (void *) (addr_to_map-4096), 2*4096, PROT_READ, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	// use mmap as a comparison
 	//ret[0] = (void *)mmap((void *) addr_to_map, 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	//ret[1] = (void *)mmap((void *) (addr_to_map-4096), 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
-//	printf("absys_mmap returns %lx.\n", ret[0]==ret[1]?ret[0]:0);
+	//printf("absys_mmap returns %lx.\n", ret[0]==ret[1]?ret[0]:0);
 
-	printf("ret[0] = %lx, ret[1] = %lx\n", ret[0], ret[1]);
+	addr = absys_brk(pid[0], addr_to_brk);
+	addr = absys_brk(pid[1], addr_to_brk);
+	printf("ret[0] = %lx\n", addr);
+	//printf("ret[0] = %lx, ret[1] = %lx\n", ret[0], ret[1]);
 	//printf("value %lx.\n", *((unsigned long *)addr_to_map));
 
 	while(1) {

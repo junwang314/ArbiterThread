@@ -456,53 +456,58 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 	 * 2) reserve correspongding VMA with nimimux interference
 	 */ 
 	list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
-	/* if it is arbiter thread or target child thread, continue to the next loop */
-	if (tsk_other_child == current || tsk_other_child == tsk_target_child) {
-		continue;
+		/* if it is arbiter thread or target child thread, continue to the next loop */
+		if (tsk_other_child == current || tsk_other_child == tsk_target_child) {
+			continue;
+		}
+		mm_other_child = tsk_other_child->mm;
+		AB_MSG("propagate VMA for child thread %d:\n", tsk_other_child->pid);
+		down_write(&mm_other_child->mmap_sem);
+		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
+		up_write(&mm_other_child->mmap_sem);
+		AB_MSG("VMA starts @ %lx\n", ret_other_child);
+		if (ret_other_child < 0) {
+			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
+			return -1;
+		}
 	}
-	mm_other_child = tsk_other_child->mm;
-	AB_MSG("propagate VMA for child thread %d:\n", tsk_other_child->pid);
-	down_write(&mm_other_child->mmap_sem);
-	ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
-	up_write(&mm_other_child->mmap_sem);
-	AB_MSG("VMA starts @ %lx\n", ret_other_child);
-	if (ret_other_child < 0) {
-		AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
-		return -1;
-	}
-
 	return (unsigned long)ret_target_child;
 }
 
 /* system call absys_brk() */
 asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 {
-	unsigned long rlim, retval;
+	unsigned long rlim, retval_target, retval_other;
 	unsigned long newbrk, oldbrk;
+	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm;
 	unsigned long min_brk;
-	struct task_struct *tsk;
+	
+	AB_INFO("absys_brk system call received. argments = (%ld, %ld,)\n", (unsigned long) childpid, ab_brk);
 
-	tsk = get_child_task_by_pid(childpid);
-	mm = tsk->mm;
+	tsk_target_child = get_child_task_by_pid(childpid);
+	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
 	/* check if called by ARBITER and then do brk for child thread in its control group */
-	if (!is_arbiter(current) || current != find_my_arbiter(tsk)) {
+	if (!is_arbiter(current) || current != find_my_arbiter(tsk_target_child)) {
 		return -EPERM;		// EPERM means operation not permitted
-	}
+	}	
 
+	/* for child thread specified by childpid:
+	 *
+	 */
+	mm = tsk_target_child->mm;
 	down_write(&mm->mmap_sem);
-/* unnecassary code from brk()
-#ifdef CONFIG_COMPAT_BRK
-	min_brk = mm->end_code;
-#else
-	min_brk = mm->start_brk;
-#endif
-*/	
+	/* unnecassary code from brk()
+	#ifdef CONFIG_COMPAT_BRK
+		min_brk = mm->end_code;
+	#else
+		min_brk = mm->start_brk;
+	#endif
+	*/	
 	min_brk = mm->start_ab_brk;
 	if (ab_brk < min_brk)
 		goto out;
-
 /* it seems that we do not need the following code, which check the against the maximum heap size */
 	/*
 	 * Check against rlimit here. If this check is done later after the test
@@ -528,18 +533,66 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	}
 
 	/* Check against existing mmap mappings. */
-	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
+	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))	// TODO: what if overlay mapping exists?
 		goto out;
 
 	/* Ok, looks good - let it rip. */
-	if (do_absys_brk(tsk, oldbrk, newbrk-oldbrk) != oldbrk)
+	if (do_absys_brk(tsk_target_child, oldbrk, newbrk-oldbrk) != oldbrk)
 		goto out;
+			 
 set_ab_brk:
 	mm->ab_brk = ab_brk;
 out:
-	retval = mm->ab_brk;
+	retval_target = mm->ab_brk;
 	up_write(&mm->mmap_sem);
-	return retval;
+
+	
+	/* for all the other child threads in the control group:
+	 *
+	 */
+	list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
+		/* if it is arbiter thread or target child thread, continue to the next loop */
+		if(tsk_other_child == current || tsk_other_child == tsk_target_child) {
+			continue;
+		}
+		mm = tsk_other_child->mm;
+		down_write(&mm->mmap_sem);
+
+		min_brk = mm->start_ab_brk;
+		if (ab_brk < min_brk)
+			goto out_other;
+		
+		newbrk = PAGE_ALIGN(ab_brk);
+		oldbrk = PAGE_ALIGN(mm->ab_brk);
+		if (oldbrk == newbrk)
+			goto set_ab_brk_other;
+	
+		/* Always allow shrinking ab_brk. */
+		if (ab_brk <= mm->ab_brk) {
+			if (!do_munmap(mm, newbrk, oldbrk-newbrk))
+				goto set_ab_brk;
+			goto out_other;
+		}
+	
+		/* Check against existing mmap mappings. */
+		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
+			goto out_other;
+	
+		/* Ok, looks good - let it rip. */
+		if (do_absys_brk_propagate(tsk_other_child, oldbrk, newbrk-oldbrk) != oldbrk)
+			goto out_other;
+				 
+	set_ab_brk_other:
+		mm->ab_brk = ab_brk;
+	out_other:
+		retval_other = mm->ab_brk;
+		up_write(&mm->mmap_sem);
+		/* check if the retval_other is the same as retval_target */
+		if (retval_other != retval_target) {
+			AB_INFO("brk retval inconsistant: target: %lx, other: %lx\n", retval_target, retval_other);
+		}	
+	}
+	return retval_target;
 }
 
 
@@ -614,6 +667,7 @@ struct page *abmap_get_page(struct vm_area_struct *vma, unsigned long address)
  * the shared page is retrieved from the arbiter thread and
  * stored in the vmf struct
  */
+/* replaced by the above abmap_get_page()
 int abmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	int ret = 0;
@@ -667,7 +721,7 @@ int abmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	//the caller will enforce the page to be locked.
 	return ret;
 }
-
+*/
 
 //callback functions
 const struct vm_operations_struct ab_vm_ops = {
