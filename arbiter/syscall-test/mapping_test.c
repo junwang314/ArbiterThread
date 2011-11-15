@@ -101,8 +101,9 @@ extern int mapping_test()
 	//ret[1] = (void *)mmap((void *) (addr_to_map-4096), 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	//printf("absys_mmap returns %lx.\n", ret[0]==ret[1]?ret[0]:0);
 
-	addr = absys_brk(pid[0], addr_to_brk);
 	addr = absys_brk(pid[1], addr_to_brk);
+	printf("ret[0] = %lx\n", addr);
+	addr = absys_brk(pid[0], addr_to_brk);
 	printf("ret[0] = %lx\n", addr);
 	//printf("ret[0] = %lx, ret[1] = %lx\n", ret[0], ret[1]);
 	//printf("value %lx.\n", *((unsigned long *)addr_to_map));

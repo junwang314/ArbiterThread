@@ -2442,8 +2442,9 @@ unsigned long do_absys_brk(struct task_struct *tsk, unsigned long addr, unsigned
 		return error;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
-	flags = flags | VM_AB_CONTROL;
-	
+	flags = flags | VM_AB_CONTROL;		// add VM_AB_CONTROL flag
+
+	printk("flags: %lx\n", flags);
 
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
@@ -2554,7 +2555,7 @@ unsigned long do_absys_brk_propagate(struct task_struct *tsk, unsigned long addr
 		return error;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
-	flags = (flags | VM_AB_CONTROL) & 0xfffffff0;	// none access as default	
+	flags = (flags | VM_AB_CONTROL) & 0xfffffff0;	// add VM_AB_CONTROL flags; none access as default	
 
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
