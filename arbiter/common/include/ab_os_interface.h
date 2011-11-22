@@ -53,6 +53,7 @@ static inline int absys_thread_control(int ab_thread_control_flag)
 static inline unsigned long absys_brk(pid_t pid, void *addr)
 {
 	unsigned long ab_brk = (unsigned long)addr;
+	printf("ab_brk = %lx\n", ab_brk);
 	return syscall(__NR_absys_brk, pid, ab_brk);
 	//return (syscall(__NR_absys_brk, pid, brk) == brk) ? 0 : -1;
 }
@@ -71,7 +72,10 @@ static inline int absys_munmap(pid_t pid, void *addr, size_t length)
 	return syscall(__NR_absys_munmap, pid, addr, length);
 }
 
-
+/* called by the arbiter thread, pid designates a child thread in its
+ * control group. this syscall will not affect other child threads.
+ * It only changes the protection of abt VMAs, skipping system VMAs.
+ */
 static inline int absys_mprotect(pid_t pid, void *addr, size_t len, int prot)
 {
 	return syscall(__NR_absys_mprotect, pid, addr, len, prot);

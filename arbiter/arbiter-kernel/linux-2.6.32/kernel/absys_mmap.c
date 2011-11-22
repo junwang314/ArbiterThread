@@ -521,7 +521,9 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 		goto out;
 */
 	newbrk = PAGE_ALIGN(ab_brk);
+	AB_DBG("ab_brk = %lx, newbrk = %lx\n", ab_brk, newbrk);
 	oldbrk = PAGE_ALIGN(mm->ab_brk);
+	AB_DBG("mm->ab_brk = %lx, oldbrk = %lx\n", mm->ab_brk, oldbrk);
 	if (oldbrk == newbrk) {
 		up_write(&mm->mmap_sem);
 		goto set_ab_brk;
