@@ -85,7 +85,7 @@ extern int mapping_test()
 	//wait some time for all the child to start
 	sleep(2);
 
-	
+	/* test code for absys_mmap() */
 	//brk((void *)addr);
 	//*((unsigned long *)addr_to_map) = 0xdeadbeef;
 	//printf("touch the memory and set value %lx.\n", *((unsigned long *)addr_to_map));
@@ -101,10 +101,20 @@ extern int mapping_test()
 	//ret[1] = (void *)mmap((void *) (addr_to_map-4096), 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
 	//printf("absys_mmap returns %lx.\n", ret[0]==ret[1]?ret[0]:0);
 
-	addr = absys_brk(pid[1], addr_to_brk);
-	printf("ret[0] = %lx\n", addr);
-	addr = absys_brk(pid[0], addr_to_brk);
-	printf("ret[0] = %lx\n", addr);
+	/* test code for absys_brk */
+	addr = absys_brk(pid[1], (void *)addr_to_brk);
+	printf("ret = %lx\n", addr);
+	
+	addr = absys_brk(pid[0], (void *)addr_to_brk);
+	printf("ret = %lx\n", addr);
+	
+	ret[0] = (void *)absys_mmap(pid[0], (void *) (0xffff1000), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
+	//ret[0] = (void *)mmap((void *) (addr_to_brk+2*4096), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
+	printf("ret = %lx\n", (unsigned long)ret[0]);
+	
+	addr = absys_brk(pid[1], ret[0] + 4096);
+	printf("ret = %lx\n", addr);
+	
 	//printf("ret[0] = %lx, ret[1] = %lx\n", ret[0], ret[1]);
 	//printf("value %lx.\n", *((unsigned long *)addr_to_map));
 
@@ -115,12 +125,12 @@ extern int mapping_test()
 		count++;
 		if(WIFEXITED(status)) {
 			printf("child %lu exited normally. count = %d\n", 
-			       wpid, count);
+			       (unsigned long)wpid, count);
 			normal++;
 		}
 		if(WIFSIGNALED(status)) {
 			printf("child %lu terminated by a signal. count = %d\n",
-			       wpid, count);
+			       (unsigned long)wpid, count);
 		}
 		else
 			printf("wait pid returns with status %d\n", status);

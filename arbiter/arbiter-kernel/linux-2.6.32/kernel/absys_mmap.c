@@ -394,7 +394,8 @@ unsigned long do_absys_vma_propagate( struct task_struct *tsk, struct file *file
 		if (vma_tmp->vm_start > addr_tmp && vma_tmp->vm_start < addr + len) {
 			len_tmp = vma_tmp->vm_start - addr_tmp;
 			addr_ret = propagate_region(tsk, file, addr_tmp, len_tmp, flags, vm_flags, pgoff);
-			}	
+			AB_MSG("Unexpected event in syscall absys_mmap: there are VMA intersections in child %d\n", tsk->pid);
+		}	
 		addr_tmp = vma_tmp->vm_end;
 		/* has walked through [addr,addr+len], job done! */
 		if (addr_tmp >= addr + len)
@@ -415,7 +416,7 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 				unsigned long pgoff)
 {	
 	
-	long ret_target_child, ret_other_child;
+	unsigned long ret_target_child, ret_other_child;
 	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm_target_child, *mm_other_child;
 	struct file *file = NULL;
@@ -446,10 +447,10 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 	ret_target_child = do_absys_mmap_pgoff(tsk_target_child, file, addr, len, prot, flags, pgoff);
 	up_write(&mm_target_child->mmap_sem);
 	AB_MSG("VMA starts @ %lx\n", ret_target_child);
-	if (ret_target_child < 0) {
-		AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed\n");
-		return -1;
-	}
+	//if (ret_target_child < 0) {
+	//	AB_MSG("ERROR in syscall absys_mmap: do_absys_mmap_pgoff failed: %d\n", ret_target_child);
+	//	return -1;
+	//}
 
 	/* for all the other child threads in the control group:  
 	 * 1) go through every child
@@ -466,10 +467,10 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 		ret_other_child = do_absys_vma_propagate(tsk_other_child, file, ret_target_child, len, prot, flags, pgoff); // use ret_target_child instead of addr
 		up_write(&mm_other_child->mmap_sem);
 		AB_MSG("VMA starts @ %lx\n", ret_other_child);
-		if (ret_other_child < 0) {
-			AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed\n");
-			return -1;
-		}
+		//if (ret_other_child < 0) {
+		//	AB_MSG("ERROR in syscall absys_mmap: do_absys_vma_propagate failed: %d\n", ret_other_child);
+		//	return -1;
+		//}
 	}
 	return (unsigned long)ret_target_child;
 }
@@ -477,27 +478,25 @@ asmlinkage unsigned long sys_absys_mmap(pid_t childpid, unsigned long addr,
 /* system call absys_brk() */
 asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 {
-	unsigned long rlim, retval_target, retval_other;
-	unsigned long newbrk, oldbrk, tmpbrk;
-	struct task_struct *tsk_target_child, *tsk_other_child;
+	unsigned long rlim, retval;
+	unsigned long newbrk, oldbrk;
+	struct task_struct *tsk;
 	struct mm_struct *mm;
 	unsigned long min_brk;
-	struct vm_area_struct *vma_tmp;
 	
 	AB_INFO("absys_brk system call received. argments = (%ld, %ld,)\n", (unsigned long) childpid, ab_brk);
 
-	tsk_target_child = get_child_task_by_pid(childpid);
-	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
+	/* Although childpid is an argument, it is only used to look up for the ab_brk (as it is the same for all child threads) */
+	tsk = get_child_task_by_pid(childpid);
+	AB_INFO("target child pid = %d\n", tsk->pid);
 
-	/* check if called by ARBITER and then do brk for child thread in its control group */
-	if (!is_arbiter(current) || current != find_my_arbiter(tsk_target_child)) {
+	/* Check if called by ARBITER and then do mmap for child thread in its control group */
+	if (!is_arbiter(current) || current != find_my_arbiter(tsk)) {
 		return -EPERM;		// EPERM means operation not permitted
 	}	
 
-	/* for child thread specified by childpid:
-	 * 
-	 */
-	mm = tsk_target_child->mm;
+	/* Do some preliminary check */
+	mm = tsk->mm;
 	down_write(&mm->mmap_sem);
 	/* unnecassary code from brk()
 	#ifdef CONFIG_COMPAT_BRK
@@ -510,7 +509,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	if (ab_brk < min_brk)
 		goto out;
 /* it seems that we do not need the following code, which check the against the maximum heap size */
-	/*
+	/* TODO: check if these are really not needed
 	 * Check against rlimit here. If this check is done later after the test
 	 * of oldbrk with newbrk then it can escape the test and let the data
 	 * segment grow beyond its set limit the in case where the limit is
@@ -523,98 +522,92 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 */
 	newbrk = PAGE_ALIGN(ab_brk);
 	oldbrk = PAGE_ALIGN(mm->ab_brk);
-	if (oldbrk == newbrk)
+	if (oldbrk == newbrk) {
+		up_write(&mm->mmap_sem);
 		goto set_ab_brk;
+	}
 
-	/* Always allow shrinking ab_brk. */
+	/* TODO: Always allow shrinking ab_brk.
 	if (ab_brk <= mm->ab_brk) {
 		if (!do_munmap(mm, newbrk, oldbrk-newbrk))
 			goto set_ab_brk;
 		goto out;
-	}
+	}*/
 
-	/* Check against existing mmap mappings, if VMA exists:
-	 * 1) if there is system VMA, do_absys_brk will not be performed and it simply goto out;
-	 * 2) otherwise, if there is abt VMA, it will be unmapped in the do_absys_brk
-	 */
-	for (tmpbrk = oldbrk; ; ) {
-		/* find the first VMA that overlaps the given interval */
-		vma_tmp = find_vma_intersection(mm, tmpbrk, newbrk+PAGE_SIZE);
-		/* if no intersection found, job done! */
-		if (!vma_tmap) {
-			break;
-		}
-		/* if there is any system VMA, goto out */
-		if (vma_tmp && ((vma_tmp->vm_flags & VM_AB_CONTROL) == 0)) {
-			goto out;
-		}
-		tmpbrk = vma_tmp->vm_end;
-		/* has walked through [oldbrk, newbrk], job done! */
-		if (tmpbrk>=newbrk+PAGE_SIZE) {
-			break;
-		}
-	}
-	/* Ok, looks good - let it rip. */
-	if (do_absys_brk(tsk_target_child, oldbrk, newbrk-oldbrk) != oldbrk)
-		goto out;
-			 
-set_ab_brk:
-	mm->ab_brk = ab_brk;
-out:
-	retval_target = mm->ab_brk;
+	/* Check against existing mmap mappings, simply return if existing VMAs are in the way. */
 	up_write(&mm->mmap_sem);
-
-	
-	/* for all the other child threads in the control group:
-	 *
-	 */
-	list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
-		/* if it is arbiter thread or target child thread, continue to the next loop */
-		if(tsk_other_child == current || tsk_other_child == tsk_target_child) {
+	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+		/* if it is arbiter thread, continue to the next loop */
+		if(tsk == current) {
 			continue;
 		}
-		mm = tsk_other_child->mm;
+		mm = tsk->mm;
 		down_write(&mm->mmap_sem);
-
-		min_brk = mm->start_ab_brk;
-		if (ab_brk < min_brk)
-			goto out_other;
-		
-		newbrk = PAGE_ALIGN(ab_brk);
-		oldbrk = PAGE_ALIGN(mm->ab_brk);
-		if (oldbrk == newbrk)
-			goto set_ab_brk_other;
-	
-		/* Always allow shrinking ab_brk. */
-		if (ab_brk <= mm->ab_brk) {
-			if (!do_munmap(mm, newbrk, oldbrk-newbrk))
-				goto set_ab_brk;
-			goto out_other;
+		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE)) {
+			AB_MSG("Exit from absys_brk when checking VMA intersection for child %d\n", tsk->pid);
+			goto out;
 		}
-	
-		/* Check against existing mmap mappings.
-		 * If any type of VMA (system VMA and abt VMA) exists, goto out_other and return
-		 */
-		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
-			goto out_other;
-	
-		/* Ok, looks good - let it rip. */
-		if (do_absys_brk_propagate(tsk_other_child, oldbrk, newbrk-oldbrk) != oldbrk)
-			goto out_other;
-				 
-	set_ab_brk_other:
-		//mm->ab_brk = ab_brk;
-	out_other:
-		retval_other = mm->ab_brk;
 		up_write(&mm->mmap_sem);
-		/* check if the retval_other is the same as retval_target */
-		//if (retval_other != retval_target) {
-		//	AB_INFO("brk retval inconsistant: target: %lx, other: %lx\n", retval_target, retval_other);
-		//}	
 	}
-	return retval_target;
-}
+	// the following code is removed from previous version
+	//for (tmpbrk = oldbrk; ; ) {
+		/* find the first VMA that overlaps the given interval */
+	//	vma_tmp = find_vma_intersection(mm, tmpbrk, newbrk+PAGE_SIZE);
+		/* if no intersection found, job done! */
+	//	if (!vma_tmp) {
+	//		break;
+	//	}
+		/* if there is any system VMA, goto out */
+	//	if (vma_tmp && ((vma_tmp->vm_flags & VM_AB_CONTROL) == 0)) {
+	//		goto out;
+	//	}
+	//	tmpbrk = vma_tmp->vm_end;
+		/* has walked through [oldbrk, newbrk], job done! */
+	//	if (tmpbrk >= newbrk+PAGE_SIZE) {
+	//		break;
+	//	}
+	//}
 
+	/* Ok, looks good - let it rip. */
+	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+		/* if it is arbiter thread, continue to the next loop */
+		if(tsk == current) {
+			continue;
+		}
+		mm = tsk->mm;
+		down_write(&mm->mmap_sem);
+		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE)) {
+			AB_MSG("Unexpected event in absys_brk: cannot increase ab_brk due to existing VMA in child %d\n", tsk->pid);
+			goto out;
+		}
+		if (do_absys_brk(tsk, oldbrk, newbrk-oldbrk) != oldbrk) {
+			AB_MSG("ERROR in absys_brk: error in do_absys_brk for child %d\n", tsk->pid);
+			goto out;
+		}
+		up_write(&mm->mmap_sem);
+	}
+			 
+set_ab_brk:
+	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+		/* if it is arbiter thread, continue to the next loop */
+		if(tsk == current) {
+			continue;
+		}
+		mm = tsk->mm;
+		down_write(&mm->mmap_sem);
+		mm->ab_brk = ab_brk;
+		up_write(&mm->mmap_sem);
+	}
+	retval = mm->ab_brk;
+	return retval;
+
+/* Unexpected event if getting here*/
+out:
+	AB_MSG("Unexpected event in absys_brk!\n"); 
+	retval = mm->ab_brk;
+	up_write(&mm->mmap_sem);
+	return retval;
+}
 
 /* system call absys_munmap() */
 asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t length)
@@ -623,6 +616,8 @@ asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t lengt
 	//long ret_target_child, ret_other_child;
 	struct task_struct *tsk_target_child, *tsk_other_child;
 	struct mm_struct *mm_target_child, *mm_other_child;
+	unsigned long addr_tmp;
+	struct vm_area_struct *vma_tmp;
 
 	AB_INFO("absys_munmap system call received. argments = (%ld, %ld, %d,)\n", (unsigned long) childpid, addr, length);
 	
@@ -630,7 +625,7 @@ asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t lengt
 	tsk_target_child = get_child_task_by_pid(childpid);
 	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
-	/* check if called by ARBITER and then do mmap for child thread in its control group */
+	/* check if called by ARBITER and then do munmap for child thread in its control group */
 	if (!is_arbiter(current) || current != find_my_arbiter(tsk_target_child)) {
 		return -EPERM;		// EPERM means operation not permitted
 	}	
@@ -638,21 +633,19 @@ asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t lengt
 	profile_munmap(addr);		// TODO: what is this?
 
 	/* for child thread specified by childpid:
-	 * set VMA.
+	 * unmap both system VMA and abt VMA 
 	 */
 	mm_target_child = tsk_target_child->mm;
 	down_write(&mm_target_child->mmap_sem);
-	// TODO: check existing vma
 	ret_target_child = do_munmap(mm_target_child, addr, length);
 	up_write(&mm_target_child->mmap_sem);
 	if (ret_target_child < 0) {
-		AB_MSG("ERROR in syscall absys_mummap: do_munmap failed\n");
-		return -1;
+		AB_MSG("ERROR in syscall absys_mummap: do_munmap failed for target child %d\n", tsk_target_child->pid);
+		return ret_target_child;
 	}
 
 	/* for all the other child threads in the control group:  
-	 * 1) go through every child
-	 * 2) reserve correspongding VMA with minimum interference
+	 * unmap abt VMA, leave system VMA unchanged (minimum interference)
 	 */ 
 	list_for_each_entry(tsk_other_child, &tsk_target_child->ab_tasks, ab_tasks) {
 		/* if it is arbiter thread or target child thread, continue to the next loop */
@@ -662,14 +655,35 @@ asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t lengt
 		mm_other_child = tsk_other_child->mm;
 		down_write(&mm_other_child->mmap_sem);
 		// TODO: check existing vma
-		ret_target_child = do_munmap(mm_target_child, addr, length);
+		for (addr_tmp = addr; ; ) {
+			/* find the first VMA that overlaps the given interval */
+			vma_tmp = find_vma_intersection(mm_other_child, addr_tmp, addr + length);
+			/* if no intersection found, job done! */
+			if (!vma_tmp) {
+				ret_other_child = 0;
+				break;
+			}
+			/* if there is any abt VMA, unmap it */
+			if ((vma_tmp->vm_start < addr + length) && (vma_tmp->vm_flags & VM_AB_CONTROL)) {
+				ret_other_child = do_munmap(vma_tmp->vm_mm, vma_tmp->vm_start, (vma_tmp->vm_end - vma_tmp->vm_start));
+			}
+			/* if there is any system VMA, skip it. but this is unexpected event. */
+			if ((vma_tmp->vm_start < addr + length) && (vma_tmp->vm_flags & VM_AB_CONTROL) == 0) {
+				AB_MSG("Unexpected event in syscall absys_munmap: there are VMA intersections in child %d\n", tsk_other_child->pid);
+			}
+			addr_tmp = vma_tmp->vm_end;
+			/* has walked through [addr, addr+length], job done! */
+			if (addr_tmp >= addr + length) {
+				break;
+			}
+		}
 		up_write(&mm_other_child->mmap_sem);
 		if (ret_other_child < 0) {
-			AB_MSG("ERROR in syscall absys_munmap: do_munmap failed\n");
-			return -1;
+			AB_MSG("ERROR in syscall absys_munmap: do_munmap failed for child %d\n", tsk_other_child->pid);
+			return ret_other_child;
 		}
 	}
-	return ret_target_child;
+	return 0;
 }
 
 
