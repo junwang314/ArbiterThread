@@ -31,7 +31,7 @@ static void child_func(unsigned long addr)
 	sleep(5);
 	printf("doing some work...\n");
 	sleep(5);
-	mprotect((void *) addr, 4096, PROT_READ|PROT_WRITE);
+	//mprotect((void *) addr, 4096, PROT_READ|PROT_WRITE);
 	//printf("work done\n");
 /*	int a;
 	unsigned long *p = (unsigned long *) (addr -4096);
@@ -62,13 +62,13 @@ extern int mapping_test()
 		goto test_failed;
 	}
      
-	addr = (unsigned long)sbrk(0) + 20*4096;
-	printf("sbrk(0) = %lx, addr = %lx.\n", (unsigned long)sbrk(0), addr);
+	//addr = (unsigned long)sbrk(0) + 20*4096;
+	//printf("sbrk(0) = %lx, addr = %lx.\n", (unsigned long)sbrk(0), addr);
 	
-	addr_to_map = (addr - 4096) & 0xfffff000; 
-	printf("mapping to address %lx.\n", addr_to_map);
+	//addr_to_map = (addr - 4096) & 0xfffff000; 
+	//printf("mapping to address %lx.\n", addr_to_map);
 
-	addr_to_brk = 0x80003000;
+	addr_to_brk = 0x80006000;
 	
 	for (i = 0; i < NUM_THREADS; ++i) {
 		pid[i] = fork();
@@ -83,7 +83,7 @@ extern int mapping_test()
 		}		
 	}
 	//wait some time for all the child to start
-	sleep(2);
+	sleep(5);
 
 	/* test code for absys_mmap() */
 	//brk((void *)addr);
@@ -105,15 +105,15 @@ extern int mapping_test()
 	addr = absys_brk(pid[1], (void *)addr_to_brk);
 	printf("ret = %lx\n", addr);
 	
-	addr = absys_brk(pid[0], (void *)addr_to_brk);
-	printf("ret = %lx\n", addr);
+	//addr = absys_brk(pid[0], (void *)addr_to_brk);
+	//printf("ret = %lx\n", addr);
 	
-	ret[0] = (void *)absys_mmap(pid[0], (void *) (0xffff1000), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
+	//ret[0] = (void *)absys_mmap(pid[0], (void *) (0xffff1000), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
 	//ret[0] = (void *)mmap((void *) (addr_to_brk+2*4096), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
-	printf("ret = %lx\n", (unsigned long)ret[0]);
+	//printf("ret = %lx\n", (unsigned long)ret[0]);
 	
-	addr = absys_brk(pid[1], ret[0] + 4096);
-	printf("ret = %lx\n", addr);
+	//addr = absys_brk(pid[1], ret[0] + 4096);
+	//printf("ret = %lx\n", addr);
 	
 	//printf("ret[0] = %lx, ret[1] = %lx\n", ret[0], ret[1]);
 	//printf("value %lx.\n", *((unsigned long *)addr_to_map));
