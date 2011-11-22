@@ -70,4 +70,11 @@ static inline int absys_munmap(pid_t pid, void *addr, size_t length)
 {
 	return syscall(__NR_absys_munmap, pid, addr, length);
 }
+
+
+static inline int absys_mprotect(pid_t pid, void *addr, size_t len, int prot)
+{
+	return syscall(__NR_absys_mprotect, pid, addr, len, prot);
+}
+
 #endif //_OS_INTERFACE_H

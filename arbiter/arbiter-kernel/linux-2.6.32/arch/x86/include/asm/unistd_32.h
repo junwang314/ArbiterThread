@@ -348,10 +348,11 @@
 #define __NR_absys_thread_control	338
 #define __NR_absys_brk		339
 #define __NR_absys_munmap	340
+#define __NR_absys_mprotect	341
 
 #ifdef __KERNEL__
 
-#define NR_syscalls 341
+#define NR_syscalls 342
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR
