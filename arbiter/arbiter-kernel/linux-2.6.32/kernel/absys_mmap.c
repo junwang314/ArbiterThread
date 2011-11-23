@@ -480,23 +480,23 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 {
 	unsigned long rlim, retval;
 	unsigned long newbrk, oldbrk;
-	struct task_struct *tsk;
+	struct task_struct *tsk_target_child, *tsk;
 	struct mm_struct *mm;
 	unsigned long min_brk;
 	
 	AB_INFO("absys_brk system call received. argments = (%ld, %ld,)\n", (unsigned long) childpid, ab_brk);
 
 	/* Although childpid is an argument, it is only used to look up for the ab_brk (as it is the same for all child threads) */
-	tsk = get_child_task_by_pid(childpid);
-	AB_INFO("target child pid = %d\n", tsk->pid);
+	tsk_target_child = get_child_task_by_pid(childpid);
+	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
 	/* Check if called by ARBITER and then do mmap for child thread in its control group */
-	if (!is_arbiter(current) || current != find_my_arbiter(tsk)) {
+	if (!is_arbiter(current) || current != find_my_arbiter(tsk_target_child)) {
 		return -EPERM;		// EPERM means operation not permitted
 	}	
 
 	/* Do some preliminary check */
-	mm = tsk->mm;
+	mm = tsk_target_child->mm;
 	down_write(&mm->mmap_sem);
 	/* unnecassary code from brk()
 	#ifdef CONFIG_COMPAT_BRK
@@ -538,7 +538,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 
 	/* Check against existing mmap mappings, simply return if existing VMAs are in the way. */
 	up_write(&mm->mmap_sem);
-	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+	list_for_each_entry(tsk, &current->ab_tasks, ab_tasks) {
 		/* if it is arbiter thread, continue to the next loop */
 		if(tsk == current) {
 			continue;
@@ -549,6 +549,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 			AB_MSG("Exit from absys_brk when checking VMA intersection for child %d\n", tsk->pid);
 			goto out;
 		}
+		//AB_DBG("1 entered child %d\n", tsk->pid);
 		up_write(&mm->mmap_sem);
 	}
 	// the following code is removed from previous version
@@ -571,8 +572,9 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	//}
 
 	/* Ok, looks good - let it rip. */
-	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+	list_for_each_entry(tsk, &current->ab_tasks, ab_tasks) {
 		/* if it is arbiter thread, continue to the next loop */
+		//AB_DBG("2-1 entered child %d\n", tsk->pid);
 		if(tsk == current) {
 			continue;
 		}
@@ -586,11 +588,13 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 			AB_MSG("ERROR in absys_brk: error in do_absys_brk for child %d\n", tsk->pid);
 			goto out;
 		}
+		//AB_DBG("2-2 entered child %d\n", tsk->pid);
 		up_write(&mm->mmap_sem);
 	}
 			 
 set_ab_brk:
-	list_for_each_entry(tsk, &tsk->ab_tasks, ab_tasks) {
+	//AB_DBG("3 entered child %d\n", tsk_target_child->pid);
+	list_for_each_entry(tsk, &current->ab_tasks, ab_tasks) {
 		/* if it is arbiter thread, continue to the next loop */
 		if(tsk == current) {
 			continue;
@@ -598,8 +602,10 @@ set_ab_brk:
 		mm = tsk->mm;
 		down_write(&mm->mmap_sem);
 		mm->ab_brk = ab_brk;
+		//AB_DBG("4 entered child %d\n", tsk->pid);
 		up_write(&mm->mmap_sem);
 	}
+	AB_DBG("4 entered child %d\n", tsk_target_child->pid);
 	retval = mm->ab_brk;
 	return retval;
 
@@ -660,9 +666,9 @@ asmlinkage int sys_absys_munmap(pid_t childpid, unsigned long addr, size_t lengt
 		for (addr_tmp = addr; ; ) {
 			/* find the first VMA that overlaps the given interval */
 			vma_tmp = find_vma_intersection(mm_other_child, addr_tmp, addr + length);
+			ret_other_child = 0;
 			/* if no intersection found, job done! */
 			if (!vma_tmp) {
-				ret_other_child = 0;
 				break;
 			}
 			/* if there is any abt VMA, unmap it */
