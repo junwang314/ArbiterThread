@@ -7,10 +7,11 @@
 
 
 //an ipc packet for monitor/client communication
-struct abt_packet {
+struct abt_request {
 	//packet number
 	uint32_t pkt_sn;
-	uint32_t pkt_size;
+	//may be -1 for failure
+	int32_t pkt_size;
 	struct rpc_header *rheader;
 	char data[RPC_DATA_LEN];	
 
@@ -25,7 +26,9 @@ struct abt_packet {
 
 void init_arbiter_ipc(struct arbiter_thread *abt);
 void wait_client_call(struct arbiter_thread *abt, 
-		      struct abt_packet *pkt);
+		      struct abt_request *req);
+
+void abt_sendreply(struct arbiter_thread *abt, struct abt_request *req, struct abt_reply_header *replyhdr);
 
 
 #endif //_IPC_H

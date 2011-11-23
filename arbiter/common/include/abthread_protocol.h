@@ -11,6 +11,8 @@ enum abt_opcode {
 	//more to add...
 };
 
+#define ABT_RPC_MAGIC      0xABC0DE
+
 struct rpc_header {
 	uint32_t abt_magic;
 	uint32_t msg_len;

@@ -6,8 +6,8 @@
 #include <sys/types.h>
 #include <string.h>
 
-
 #include <abthread_protocol.h>
+#include <ab_debug.h>
 
 #include "arbiter.h"
 #include "ipc.h"
@@ -38,18 +38,34 @@ void init_arbiter_ipc(struct arbiter_thread *abt)
 //block waiting for some client rpc
 //record the packet and client state
 void wait_client_call(struct arbiter_thread *abt, 
-		      struct abt_packet *pkt)
+		      struct abt_request *req)
 {
 	static unsigned long serial = 0;
 	
 	//blocking wait
 	//store the client socket addr in order to 
 	//identify the client
-	pkt->pkt_size = recvfrom(abt->monitor_sock, 
-				 (void *)pkt->data, 
+	req->pkt_size = recvfrom(abt->monitor_sock, 
+				 (void *)req->data, 
 				 RPC_DATA_LEN,
-				 (struct sockaddr *)pkt->client_addr,
-				 &client_addr_len);
+				 0,
+				 (struct sockaddr *)req->client_addr,
+				 &req->client_addr_len);
 	
-	pkt->pkt_sn = serial++;
+	req->pkt_sn = serial++;
+}
+
+//send the reply
+//currently for rpcs, only the header is required
+//the caller is responsible for releasing the header
+void abt_sendreply(struct arbiter_thread *abt, struct abt_request *req, struct abt_reply_header *replyhdr)
+{
+	int rc;
+	rc = sendto(abt->monitor_sock, 
+		    (void *)replyhdr, 
+		    sizeof(struct abt_reply_header),
+		    0,
+		    (struct sockaddr *)req->client_addr,
+		    req->client_addr_len);
+	assert(rc >=0);	
 }
