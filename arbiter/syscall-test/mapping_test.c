@@ -176,9 +176,11 @@ extern int mapping_test()
 	printf("ret = %d\n", absys_mprotect(pid[1], (void *)addr_to_map, 4096, PROT_NONE));
 	printf("ret = %d\n", absys_mprotect(pid[2], (void *)addr_to_map, 4096, PROT_NONE));
 	printf("ret = %d\n", absys_mprotect(pid[3], (void *)addr_to_map, 4096, PROT_NONE));
+	//check if VMA merge automatically
+	printf("ret = %d\n", absys_mprotect(pid[2], (void *)(addr_to_map+4096), 4096, PROT_NONE));
 	
 	/* test code for absys_munmap */
-	printf("ret = %d\n", absys_munmap(pid[4], (void *)addr_to_map, 4096));
+	//printf("ret = %d\n", absys_munmap(pid[4], (void *)addr_to_map, 4096));
 	
 	/* code out of use */
 	//ret[0] = (void *)absys_mmap(pid[0], (void *) (0xffff1000), 2*4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE, -1, 0);
