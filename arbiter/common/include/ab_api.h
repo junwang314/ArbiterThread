@@ -22,28 +22,25 @@ typedef struct {		// capability set structure
 /* create a category */
 cat_t create_category(cat_type t);	// t is either CAT_S or CAT_I 
 
-/* set label for itself */
-int self_set_label(label_t L);
+/* create new process in the thread control group */
+pid_t ab_fork(label_t L, capset O);
 
 /* get label of itself */
 label_t get_label(void);		
 
+/* get the capability set of itself */
+capset get_capset(void);
+
 /* memory allocation */
 void *ab_malloc(size_t size, label_t L);
-
-/* get the label of a memory object */
-label_t get_mem_label(void *ptr);
 
 /* free memory*/
 void ab_free(void *ptr);
 
-/* create new process in the thread control group */
-pid_t ab_fork(label_t L, capset O);
-
-/* get the capability set of itself */
-capset get_capset();
+/* get the label of a memory object */
+label_t get_mem_label(void *ptr);
 
 /* copy and relabel a memeory object */
-void *ab_memcp(void *ptr, label_t L);
+void *ab_memcpy(void *dest, const void *src, size_t n, label_t L);
 
 #endif //_AB_API_H
