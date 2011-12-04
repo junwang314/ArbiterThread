@@ -1,11 +1,11 @@
 #ifndef _AB_API_H
 #define _AB_API_H
 
-#define NUM_CAT_S	4;
-#define NUM_CAT_I	4;
+#define NUM_CAT_S	4
+#define NUM_CAT_I	4
 
-#define CAT_S	0x00000000;
-#define CAT_I	0x00000001;
+#define CAT_S	0x00000000
+#define CAT_I	0x00000001
 
 typedef unsigned int cat_t;	// category type (e.g. Pr, Pw, ...)
 typedef unsigned int cat_type;	// type of category: CAT_S-secrecy, CAT_I-integrity

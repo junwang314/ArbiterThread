@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <ab_api.h>
+
 //OPcode for abt and client communication
 enum abt_opcode {
 	ABT_MALLOC,
@@ -17,9 +19,6 @@ struct rpc_header {
 	uint32_t abt_magic;
 	uint32_t msg_len;
 	uint32_t opcode;
-	//number of arguments in this rpc call
-	//NOTE: we assume all args are 32 bit in length
-	uint8_t num_args;	
 };
 
 //maximum data length, including the header
@@ -34,5 +33,23 @@ struct abt_reply_header {
 
 //socket opened by monitor
 #define MONITOR_SOCKET "/tmp/abt_monitor_socket"
+
+//AbThread API requests
+struct abreq_malloc {
+	struct rpc_header hdr;
+	uint32_t size;
+	uint32_t label;
+};
+
+
+struct abreq_free {
+	struct rpc_header hdr;
+	uint32_t addr;	
+};
+
+
+
+
+
 
 #endif //_ABTHREAD_PROTOCAL_H
