@@ -2,7 +2,7 @@ BUILD=./build
 
 BUILD_TARGETS=$(patsubst %, $(BUILD)/%, $(TARGETS))
 
-VPATH=$(BUILD)
+VPATH=$(BUILD):$(subst ,:,$(MODULES))
 
 CC:=$(CC) $(CFLAGS)
 

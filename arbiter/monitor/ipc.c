@@ -22,6 +22,10 @@ void init_arbiter_ipc(struct arbiter_thread *abt)
 	unix_addr.sun_family = AF_UNIX;
 	//at most of len 108, see un.h
 	snprintf(unix_addr.sun_path, 108, "%s", MONITOR_SOCKET);
+
+	//remove the pipe if exists
+	unlink(unix_addr.sun_path);
+
 	//unix domain socket using datagram
 	//guaranteed deliver and in-order
 	abt->monitor_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -42,6 +46,8 @@ void wait_client_call(struct arbiter_thread *abt,
 {
 	static unsigned long serial = 0;
 	
+	req->client_addr_len = sizeof(req->client_addr);
+
 	//blocking wait
 	//store the client socket addr in order to 
 	//identify the client

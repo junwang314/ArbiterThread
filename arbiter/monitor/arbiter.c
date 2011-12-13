@@ -15,6 +15,22 @@
 
 struct arbiter_thread arbiter;
 
+//this is for test purpose
+static void handle_free_rpc(struct arbiter_thread *abt, 
+			    struct abt_request *req, 
+			    struct rpc_header *hdr)
+{
+	struct abt_reply_header rply;
+	struct abreq_free *freereq = (struct abreq_free *)hdr;
+	AB_INFO("Processing free, addr = %lx\n", freereq->addr);
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+		
+	abt_sendreply(abt, req, &rply);
+
+}
+
+
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
 {
@@ -52,7 +68,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	case ABT_FREE:
 	{
 		AB_INFO("arbiter: free rpc received. req no=%d.\n", req->pkt_sn);
-		//handle_free_rpc(req, hdr);
+		handle_free_rpc(abt, req, hdr);
 		break;
 	}
 	//more to add

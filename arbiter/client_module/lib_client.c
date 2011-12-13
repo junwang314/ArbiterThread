@@ -9,6 +9,7 @@
 
 #include <abthread_protocol.h>
 #include <ab_api.h>
+#include <ab_debug.h>
 
 #include "lib_client.h"
 
@@ -43,16 +44,6 @@ void init_client_ipc(struct abrpc_client_state *cli_state)
 	
 }
 
-void init_client_state(struct abrpc_client_state *cli_state)
-{
-	//TODO init other state
-	cli_state->pid = (int) getpid();
-
-	//ipc init
-	init_client_ipc(cli_state);
-	
-}
-
 
 //the header and the request struct must be properly filled
 //before calling this function
@@ -79,6 +70,8 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 	assert(rc == hdr->msg_len);
 
 	for(;;) {
+		recv_addr_len = sizeof(recv_addr);
+
 		//block wait abt reply, we only get the reply struct
 		rc = recvfrom(cli_state->client_sock, 
 			      (void *)rply, 
@@ -111,6 +104,18 @@ static inline struct abrpc_client_state *get_state()
 {
 	//need lock in future?
 	return &_abclient;
+}
+
+void init_client_state()
+{
+	struct abrpc_client_state *cli_state = get_state();
+
+	//TODO init other state
+	cli_state->pid = (int) getpid();
+
+	//ipc init
+	init_client_ipc(cli_state);
+	
 }
 
 /**************** API wrappers *******************/
