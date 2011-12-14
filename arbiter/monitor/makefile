@@ -9,11 +9,14 @@ INCS=\
 
 CFLAGS=\
 	-g  \
+	-lpthread \
 	$(INCS)
 
 ARBITER_SRCS=\
 	ipc.c \
-	arbiter.c
+	arbiter.c \
+	malloc.c \
+	free.c
 
 
 ARBITER_OBJS=\
