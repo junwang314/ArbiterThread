@@ -8,12 +8,44 @@
 #include <abthread_protocol.h>
 #include <ab_os_interface.h>
 
+#include <lib/linked_list.h>
+
 #include "arbiter.h"
 #include "ipc.h"
 
+/************************** Client State Handle ************************/
+
+struct _client_addr_cmp {
+	char *unix_addr;
+	uint32_t len;	
+};
+
+static bool _cmp_client(const void *key, const void* data)
+{
+	struct _client_addr_cmp *cmpkey = (struct _client_addr_cmp *) key;
+	struct client_desc *c = (struct client_desc *)data;
+
+	if (!cmpkey->unix_addr || cmpkey->len != c->client_addr.addr_len)
+		return false;
+
+	if (strncmp(cmpkey->unix_addr, c->client_addr.unix_addr, cmpkey->len))
+		return false;
+	return true;
+}
 
 
-struct arbiter_thread arbiter;
+struct client_desc *arbiter_lookup_client(struct arbiter_thread *abt, 
+					  char *unix_addr, 
+					  uint32_t addr_len)
+{
+	struct _client_addr_cmp cmp;
+	cmp.unix_addr = unix_addr;
+	cmp.len = addr_len;
+
+	return (struct client_desc *)linked_list_lookup(&abt->client_list, &cmp, _cmp_client);
+}
+
+/***********************************************************************/
 
 //this is for test purpose
 static void handle_free_rpc(struct arbiter_thread *abt, 
@@ -22,7 +54,7 @@ static void handle_free_rpc(struct arbiter_thread *abt,
 {
 	struct abt_reply_header rply;
 	struct abreq_free *freereq = (struct abreq_free *)hdr;
-	AB_INFO("Processing free, addr = %lx\n", freereq->addr);
+	AB_INFO("Processing free, addr = %lx\n", (unsigned long)freereq->addr);
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
 		
@@ -93,10 +125,20 @@ static void server_loop(struct arbiter_thread *abt)
 static void init_arbiter_thread(struct arbiter_thread *abt)
 {
 	//initialize the arbiter state
-	
+
+	//client table init
+	init_linked_list(&abt->client_list);
+
+	//init socket ipc
 	init_arbiter_ipc(abt);
 	return;
 }
+
+
+
+
+//global state
+struct arbiter_thread arbiter;
 
 int main()
 {

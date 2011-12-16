@@ -18,9 +18,13 @@ ARBITER_SRCS=\
 	malloc.c \
 	free.c
 
+LIB_COMMON=$(AB_ROOT)/common/lib/
+
+LIB_COMMON_OBJS=\
+	linked_list.o
 
 ARBITER_OBJS=\
-	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(ARBITER_SRCS)))
+	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(ARBITER_SRCS))) $(LIB_COMMON_OBJS)
 
 
 ####varibles to fit in the make.in template
@@ -31,7 +35,11 @@ TARGETS=\
 DEP_SRCS=\
 	$(ARBITER_SRCS)
 
-MODULE_OBJS=
+MODULES=\
+	$(LIB_COMMON) \
+
+MODULE_OBJS=\
+	$(LIB_COMMON_OBJS) \
 
 
 ################## include

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "linked_list.h"
+#include <lib/linked_list.h>
 
 void list_insert_head(struct linked_list *list, void *data)
 {
@@ -61,3 +61,25 @@ void *list_del_entry(struct linked_list *list, struct list_node *entry)
 	return data;
 }
 
+//locate the node by given datum
+struct list_node *linked_list_locate(struct linked_list *list, void *data)
+{
+	struct list_node *ptr;
+	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
+		if (ptr->data == data)
+			return ptr;
+	}
+	return NULL;
+}
+
+//lookup the datum by value, return the first match
+void *linked_list_lookup(struct linked_list *list, void *key, 
+			 bool (*cmpf)(const void *key, const void *data))
+{
+	struct list_node *ptr;
+	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
+		if (cmpf(key, ptr->data) == true)
+			return ptr->data;
+	}
+	return NULL;	
+}

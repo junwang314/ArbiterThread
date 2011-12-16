@@ -1,6 +1,8 @@
 #ifndef _LINKED_LIST_H
 #define _LINKED_LIST_H
 
+#include <stdbool.h>
+
 // a very simple doubly linked-list
 struct list_node {
 	void *data;
@@ -41,7 +43,12 @@ static inline void *list_remove_tail(struct linked_list *list)
 	return NULL;
 }
 
-//search function and list_for_each not implemented
+//locate the node by given datum
+struct list_node *linked_list_locate(struct linked_list *list, void *data);
+
+//lookup the datum by value, return the first match
+void *linked_list_lookup(struct linked_list *list, void *key, 
+			 bool (*cmpf)(const void *key, const void *data));
 
 
 #endif //_LINKED_LIST_H
