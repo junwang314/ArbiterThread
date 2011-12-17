@@ -65,6 +65,31 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 
 }
 
+static void handle_malloc_rpc(struct arbiter_thread *abt, 
+			      struct abt_request *req, 
+			      struct rpc_header *hdr)
+{
+	void *ptr;
+	size_t size;
+	int label; //FIXME label type: uint32_t or label_t?
+	struct abt_reply_header rply;
+	struct abreq_malloc *mallocreq = (struct abreq_malloc *)hdr;
+	AB_INFO("Processing malloc \n");
+
+	size = mallocreq->size;
+	label = mallocreq->label;
+
+	//FIXME ablib_malloc() redesgin (in progress)
+	ptr = ablib_malloc(size);
+			
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = ptr;
+
+	abt_sendreply(abt, req, &rply);
+
+}
+
 //this is for test purpose
 static void handle_free_rpc(struct arbiter_thread *abt, 
 			    struct abt_request *req, 
@@ -119,7 +144,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		AB_INFO("arbiter: malloc rpc received. req no=%d.\n", req->pkt_sn);
 
 		//the handling routine
-		//handle_malloc_rpc(req, hdr);
+		handle_malloc_rpc(abt, req, hdr);
 		break;
 	}
 	case ABT_FREE:

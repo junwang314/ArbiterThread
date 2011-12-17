@@ -14,8 +14,7 @@
   Hacked up for uClibc by Erik Andersen <andersen@codepoet.org>
 */
 
-#include "malloc.h"
-
+#include "ablib_malloc.h"
 
 pthread_mutex_t __malloc_lock = PTHREAD_MUTEX_INITIALIZER; // ? PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 
@@ -800,7 +799,7 @@ static int __malloc_largebin_index(unsigned int sz)
 
 
 /* ------------------------------ malloc ------------------------------ */
-void* ab_malloc(size_t bytes)
+void* ablib_malloc(size_t bytes)
 {
     mstate av;
 

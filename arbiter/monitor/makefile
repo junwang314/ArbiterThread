@@ -15,8 +15,8 @@ CFLAGS=\
 ARBITER_SRCS=\
 	ipc.c \
 	arbiter.c \
-	malloc.c \
-	free.c
+	ablib_malloc.c \
+	ablib_free.c
 
 LIB_COMMON=$(AB_ROOT)/common/lib/
 

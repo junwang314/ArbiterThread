@@ -14,7 +14,7 @@
   Hacked up for uClibc by Erik Andersen <andersen@codepoet.org>
 */
 
-#include "malloc.h"
+#include "ablib_malloc.h"
 
 
 /* ------------------------- __malloc_trim -------------------------
@@ -263,7 +263,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 
 
 /* ------------------------------ free ------------------------------ */
-void ab_free(void* mem)
+void ablib_free(void* mem)
 {
     mstate av;
 

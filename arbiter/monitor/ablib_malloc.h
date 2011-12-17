@@ -30,6 +30,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include <ab_api.h>
+
 extern pthread_mutex_t __malloc_lock;
 #define __MALLOC_LOCK		pthread_mutex_lock(&__malloc_lock);
 #define __MALLOC_UNLOCK		pthread_mutex_unlock(&__malloc_lock);
