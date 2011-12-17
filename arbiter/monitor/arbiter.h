@@ -12,6 +12,7 @@ struct arbiter_thread {
 	int monitor_sock;
 
 	//TODO More to add... e.g., child thread table...
+	//TODO check with Xi: how?
 	
 	//list for active clients
 	struct linked_list client_list;
@@ -33,8 +34,9 @@ struct client_desc {
 	//process id
 	uint32_t pid;
 
-	//security information...
-	
+	//security information: label and ownership
+	label_t label;
+	capset ownership;
 	
 };
 

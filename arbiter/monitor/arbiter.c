@@ -46,6 +46,24 @@ struct client_desc *arbiter_lookup_client(struct arbiter_thread *abt,
 }
 
 /***********************************************************************/
+static void handle_fork_rpc(struct arbiter_thread *abt, 
+			    struct abt_request *req, 
+			    struct rpc_header *hdr)
+{
+	struct abt_reply_header rply;
+	struct abreq_fork *forkreq = (struct abreq_fork *)hdr;
+	AB_INFO("Processing fork \n");
+
+	//TODO allocate a new struct client_desc for new thread...
+	// add new thread to linked list...
+			
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = 0; //0 indicate success
+
+	abt_sendreply(abt, req, &rply);
+
+}
 
 //this is for test purpose
 static void handle_free_rpc(struct arbiter_thread *abt, 
@@ -89,6 +107,13 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	//client socket addr
 
 	switch(hdr->opcode) {
+	case ABT_FORK:
+	{
+		AB_INFO("arbiter: fork rpc received. req no=%d.\n", req->pkt_sn);
+		handle_fork_rpc(abt, req, hdr);		
+		break;
+	}
+	
 	case ABT_MALLOC:
 	{
 		AB_INFO("arbiter: malloc rpc received. req no=%d.\n", req->pkt_sn);
@@ -142,6 +167,7 @@ struct arbiter_thread arbiter;
 
 int main()
 {
+	absys_thread_control(AB_SET_ME_ARBITER);
 	init_arbiter_thread(&arbiter);
 	server_loop(&arbiter);
 	return 0;

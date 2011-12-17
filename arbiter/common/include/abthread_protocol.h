@@ -8,6 +8,7 @@
 
 //OPcode for abt and client communication
 enum abt_opcode {
+	ABT_FORK,
 	ABT_MALLOC,
 	ABT_FREE,
 	//more to add...
@@ -35,12 +36,17 @@ struct abt_reply_header {
 #define MONITOR_SOCKET "/tmp/abt_monitor_socket"
 
 //AbThread API requests
+struct abreq_fork{
+	struct rpc_header hdr;
+	label_t label;
+	capset ownership;
+};
+
 struct abreq_malloc {
 	struct rpc_header hdr;
 	uint32_t size;
 	uint32_t label;
 };
-
 
 struct abreq_free {
 	struct rpc_header hdr;

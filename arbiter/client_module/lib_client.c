@@ -10,6 +10,7 @@
 #include <abthread_protocol.h>
 #include <ab_api.h>
 #include <ab_debug.h>
+#include <ab_os_interface.h>
 
 #include "lib_client.h"
 
@@ -120,6 +121,45 @@ void init_client_state()
 
 /**************** API wrappers *******************/
 
+pid_t ab_fork(label_t L, capset O)
+{
+	pid_t pid;
+	struct abreq_fork req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_FORK;
+
+	req.label = *(label_t *) &L;
+	req.ownership = *(capset *) &O;
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+	
+	if (rply.return_val) //arbiter failed to register 
+		return -1;
+		
+	//now fork a child thread
+	pid = fork();
+	
+	if (pid < 0) {
+		AB_MSG("Fork failed\n");
+	}
+	if (pid == 0){ //child thread
+		absys_thread_control(AB_SET_ME_SPECIAL);
+		//TODO check with Xi: correct or not? (abrpc_client_state?)
+		init_client_state();
+	}
+	if (pid > 0){ //parent thread
+		return pid;
+	}
+}
+
 void ab_free(void *ptr)
 {
 	struct abreq_free req;
@@ -142,6 +182,7 @@ void ab_free(void *ptr)
 }
 
 //To Jun: could the label type be shrink to 32 bit?
+//TODO check with Xi: let's not shrink the label type
 void *ab_malloc(size_t size, label_t L)
 {
 	struct abreq_malloc req;
