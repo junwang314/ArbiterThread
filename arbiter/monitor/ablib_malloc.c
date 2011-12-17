@@ -25,7 +25,9 @@ pthread_mutex_t __malloc_lock = PTHREAD_MUTEX_INITIALIZER; // ? PTHREAD_RECURSIV
    malloc relies on the property that malloc_state is initialized to
    all zeroes (as is true of C statics).
 */
-struct malloc_state __malloc_state;  /* never directly referenced */
+struct linked_list __malloc_state_list; /* never directly referenced */
+
+struct malloc_state __malloc_state; //FIXME
 
 /* forward declaration */
 static int __malloc_largebin_index(unsigned int sz);
@@ -799,7 +801,7 @@ static int __malloc_largebin_index(unsigned int sz)
 
 
 /* ------------------------------ malloc ------------------------------ */
-void* ablib_malloc(size_t bytes)
+void* ablib_malloc(size_t bytes, label_t L)
 {
     mstate av;
 
@@ -832,7 +834,7 @@ void* ablib_malloc(size_t bytes)
 #endif
 
     __MALLOC_LOCK;
-    av = get_malloc_state();
+    av = lookup_mstate_by_label(L);
     /*
        Convert request size to internal form by adding (sizeof(size_t)) bytes
        overhead plus possibly more to obtain necessary alignment and/or

@@ -1,3 +1,5 @@
+#ifndef _ABLIB_MALLOC_H
+#define _ABLIB_MALLOC_H
 /*
   This is a version (aka dlmalloc) of malloc/free/realloc written by
   Doug Lea and released to the public domain.  Use, modify, and
@@ -31,6 +33,9 @@
 #include <stdio.h>
 
 #include <ab_api.h>
+#include <ab_os_interface.h>
+#include <ab_debug.h>
+#include <lib/linked_list.h>
 
 extern pthread_mutex_t __malloc_lock;
 #define __MALLOC_LOCK		pthread_mutex_lock(&__malloc_lock);
@@ -864,6 +869,11 @@ typedef struct malloc_chunk* mfastbinptr;
 */
 
 struct malloc_state {
+  /* Label */
+  label_t label;
+  
+  /* list for unit header */
+  struct linked_list unit_hdr_list;
 
   /* The maximum chunk size to be eligible for fastbin */
   size_t  max_fast;   /* low 2 bits used as flags */
@@ -964,3 +974,87 @@ extern void __do_check_malloc_state(void);
 #include <assert.h>
 
 #endif
+
+/*
+  -------------- ArbiterThread allocator support ----------------
+*/
+/*  
+  AB-Heap (or exchange heap, shared heap, channel heap) is dividided into 
+  lots of memory units. Each unit represent a particular label. Inside 
+  each unit, memory allocation is managed using the similar mechanism 
+  as dlmalloc, including the concept of chunk, fastbin, bin, top, etc. 
+  Units with the same label are linked together. The hearder of each 
+  unit contains the information of label, linked list, etc. One set 
+  of units with the same label are managed seperately from another set. 
+  Therefore, this AB-Heap allocator can be viewed as several concurently
+  working dlmalloc allocators.
+  
+  unit-->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      +----|header|  chunks   |            |                |              |   
+      |    |             |                                                 |
+      |    |                             ...                               |
+      |    |                                                               |
+  unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      +----|header|                                                        |   
+      |    |                                                               |
+      |    |                                                               |
+      |    |                                                               |
+  unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+           |header|                                                        |   
+           |                                                               |
+           |                                                               |
+           |                                                               |
+           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+*/
+#define PAGE_PER_UNIT 	10 //10 page (4MB) per unit
+#define UNIT_ALIGNMENT	(PAGE_PER_UNIT*malloc_getpagesize)
+#define UNIT_ALIGN_MASK	(~(UNIT_ALIGNMENT - 1))
+
+struct unit_header {
+	label_t label;
+	struct unit_header *next;
+	mchunkptr unit_top;
+	mstate unit_av;
+};
+
+
+//mstates for different set of units are stored in a linked list
+extern struct linked_list __malloc_state_list;
+
+#define get_malloc_state_list()	(&(__malloc_state_list))
+
+
+//look up mstate by label, called by ablib_malloc()
+static bool _cmp_mstate(const void *key, const void* data)
+{
+	label_t *label = (label_t *)key;
+	mstate unit_av = (mstate)data;
+	
+	if (memcmp(label, &(unit_av->label), sizeof(label_t)) == 0)
+		return true;
+	return false;
+}
+
+static mstate lookup_mstate_by_label(label_t L)
+{
+	return (mstate) linked_list_lookup(get_malloc_state_list(),
+					   &L, 
+					   _cmp_mstate);
+}
+
+//locate the unit header using an address 
+static inline struct unit_header *get_unit_header(void *ptr)
+{
+	return (struct unit_header *)((unsigned long)ptr & UNIT_ALIGN_MASK);
+}
+
+//look up mstate by memory address, called by ablib_free()
+static mstate lookup_mstate_by_mem(void *ptr)
+{
+	struct unit_header *hdr;
+	
+	hdr = get_unit_header(ptr);
+	return (hdr->unit_av);
+}
+#endif //_ABLIB_MALLOC_H

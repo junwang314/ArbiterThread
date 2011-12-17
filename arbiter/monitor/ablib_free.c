@@ -104,7 +104,7 @@ static int __malloc_trim(size_t pad, mstate av)
 */
 int malloc_trim(size_t pad)
 {
-  mstate av = get_malloc_state();
+  mstate av = get_malloc_state(); //FIXME
   __malloc_consolidate(av);
   return __malloc_trim(pad, av);
 }
@@ -145,6 +145,9 @@ static void malloc_init_state(mstate av)
 
     av->top            = initial_top(av);
     av->pagesize       = malloc_getpagesize;
+    
+    // add new mstate to the mstate list
+    list_insert_tail(get_malloc_state_list(), (void *)av);
 }
 
 
@@ -256,6 +259,9 @@ void attribute_hidden __malloc_consolidate(mstate av)
 	} while (fb++ != maxfb);
     }
     else {
+    	if (get_malloc_state_list()->num == 0) { //initialize mstate list
+    		init_linked_list(get_malloc_state_list());
+    	}
 	malloc_init_state(av);
 	check_malloc_state();
     }
@@ -282,7 +288,7 @@ void ablib_free(void* mem)
 	return;
 
     __MALLOC_LOCK;
-    av = get_malloc_state();
+    av = lookup_mstate_by_mem(mem);
     p = mem2chunk(mem);
     size = chunksize(p);
 
