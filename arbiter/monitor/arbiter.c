@@ -12,41 +12,11 @@
 
 #include "arbiter.h"
 #include "ipc.h"
-
-/************************** Client State Handle ************************/
-
-struct _client_addr_cmp {
-	char *unix_addr;
-	uint32_t len;	
-};
-
-static bool _cmp_client(const void *key, const void* data)
-{
-	struct _client_addr_cmp *cmpkey = (struct _client_addr_cmp *) key;
-	struct client_desc *c = (struct client_desc *)data;
-
-	if (!cmpkey->unix_addr || cmpkey->len != c->client_addr.addr_len)
-		return false;
-
-	if (strncmp(cmpkey->unix_addr, c->client_addr.unix_addr, cmpkey->len))
-		return false;
-	return true;
-}
-
-
-struct client_desc *arbiter_lookup_client(struct arbiter_thread *abt, 
-					  char *unix_addr, 
-					  uint32_t addr_len)
-{
-	struct _client_addr_cmp cmp;
-	cmp.unix_addr = unix_addr;
-	cmp.len = addr_len;
-
-	return (struct client_desc *)linked_list_lookup(&abt->client_list, &cmp, _cmp_client);
-}
+#include "client.h"
 
 /***********************************************************************/
-static void handle_fork_rpc(struct arbiter_thread *abt, 
+static void handle_fork_rpc(struct arbiter_thread *abt,
+			    struct client_desc *c,
 			    struct abt_request *req, 
 			    struct rpc_header *hdr)
 {
@@ -65,7 +35,8 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 
 }
 
-static void handle_malloc_rpc(struct arbiter_thread *abt, 
+static void handle_malloc_rpc(struct arbiter_thread *abt,
+			      struct client_desc *c,
 			      struct abt_request *req, 
 			      struct rpc_header *hdr)
 {
@@ -91,7 +62,8 @@ static void handle_malloc_rpc(struct arbiter_thread *abt,
 }
 
 //this is for test purpose
-static void handle_free_rpc(struct arbiter_thread *abt, 
+static void handle_free_rpc(struct arbiter_thread *abt,
+			    struct client_desc *c,
 			    struct abt_request *req, 
 			    struct rpc_header *hdr)
 {
@@ -110,6 +82,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 			      struct abt_request *req)
 {
 	struct rpc_header *hdr;
+	struct client_desc *c;
 	//sanitization
 	if (req->pkt_size <= 0) {
 		AB_MSG("arbiter: NULL packet or recieved failed!\n");
@@ -130,12 +103,18 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	
 	//TODO retrive the client information according to the
 	//client socket addr
+	c = arbiter_lookup_client(abt, req->client_addr, req->client_addr_len);
+
+	if (c == NULL) {
+		AB_MSG("arbiter: unknown client\n");
+		return;
+	}
 
 	switch(hdr->opcode) {
 	case ABT_FORK:
 	{
 		AB_INFO("arbiter: fork rpc received. req no=%d.\n", req->pkt_sn);
-		handle_fork_rpc(abt, req, hdr);		
+		handle_fork_rpc(abt, c, req, hdr);		
 		break;
 	}
 	
@@ -144,13 +123,13 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		AB_INFO("arbiter: malloc rpc received. req no=%d.\n", req->pkt_sn);
 
 		//the handling routine
-		handle_malloc_rpc(abt, req, hdr);
+		handle_malloc_rpc(abt, c, req, hdr);
 		break;
 	}
 	case ABT_FREE:
 	{
 		AB_INFO("arbiter: free rpc received. req no=%d.\n", req->pkt_sn);
-		handle_free_rpc(abt, req, hdr);
+		handle_free_rpc(abt, c, req, hdr);
 		break;
 	}
 	//more to add

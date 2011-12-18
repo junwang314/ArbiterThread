@@ -16,7 +16,8 @@ ARBITER_SRCS=\
 	ipc.c \
 	arbiter.c \
 	ablib_malloc.c \
-	ablib_free.c
+	ablib_free.c \
+	client.c \
 
 LIB_COMMON=$(AB_ROOT)/common/lib/
 

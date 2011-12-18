@@ -19,25 +19,4 @@ struct arbiter_thread {
 };
 
 
-//client identifier: unix domain socket addr
-struct client_key {
-	char unix_addr[256];
-	uint32_t addr_len;
-};
-
-
-/* descriptor for a client */
-struct client_desc {
-	
-	struct client_key client_addr;
-
-	//process id
-	uint32_t pid;
-
-	//security information: label and ownership
-	label_t label;
-	capset ownership;
-	
-};
-
 #endif  //_ARBITER_H
