@@ -25,9 +25,7 @@ pthread_mutex_t __malloc_lock = PTHREAD_MUTEX_INITIALIZER; // ? PTHREAD_RECURSIV
    malloc relies on the property that malloc_state is initialized to
    all zeroes (as is true of C statics).
 */
-struct linked_list __malloc_state_list; /* never directly referenced */
-
-struct malloc_state __malloc_state; //FIXME
+struct abheap_state __abheap_state;	/* never directly referenced */
 
 /* forward declaration */
 static int __malloc_largebin_index(unsigned int sz);
@@ -35,7 +33,7 @@ static int __malloc_largebin_index(unsigned int sz);
 #ifdef __UCLIBC_MALLOC_DEBUGGING__
 
 /*
-  Debugging support
+  Debugging support FIXME 1) add av to the arg; 2) take unit into consideration
 
   Because freed chunks may be overwritten with bookkeeping fields, this
   malloc will often die when freed memory is overwritten by user
@@ -343,7 +341,7 @@ void __do_check_malloc_state(void)
   space to service request for nb bytes, thus requiring that av->top
   be extended or replaced.
 */
-static void* __malloc_alloc(size_t nb, mstate av)
+static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 {
     mchunkptr       old_top;        /* incoming value of av->top */
     size_t old_size;       /* its size */
@@ -404,7 +402,7 @@ static void* __malloc_alloc(size_t nb, mstate av)
 	/* Don't try if size wraps around 0 */
 	if ((unsigned long)(size) > (unsigned long)(nb)) {
 
-	    mm = (char*)(MMAP(0, size, PROT_READ|PROT_WRITE));
+	    mm = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
 
 	    if (mm != (char*)(MORECORE_FAILURE)) {
 
@@ -443,6 +441,9 @@ static void* __malloc_alloc(size_t nb, mstate av)
 
 		check_chunk(p);
 
+		//update protection for other threads
+		prot_update(pid, p, size, L);
+
 		return chunk2mem(p);
 	    }
 	}
@@ -470,28 +471,27 @@ static void* __malloc_alloc(size_t nb, mstate av)
     assert(!have_fastchunks(av));
 
 
-    /* Request enough space for nb + pad + overhead */
+    /* Request UNIT_SIZE memory each time */
+    size = UNIT_SIZE;
 
-    size = nb + av->top_pad + MINSIZE;
+//    /*
+//       If contiguous, we can subtract out existing space that we hope to
+//       combine with new space. We add it back later only if
+//       we don't actually get contiguous space.
+//     */
 
-    /*
-       If contiguous, we can subtract out existing space that we hope to
-       combine with new space. We add it back later only if
-       we don't actually get contiguous space.
-       */
+//    if (contiguous(av))
+//	size -= old_size;
 
-    if (contiguous(av))
-	size -= old_size;
-
-    /*
-       Round to a multiple of page size.
-       If MORECORE is not contiguous, this ensures that we only call it
-       with whole-page arguments.  And if MORECORE is contiguous and
-       this is not first time through, this preserves page-alignment of
-       previous calls. Otherwise, we correct to page-align below.
-       */
-
-    size = (size + pagemask) & ~pagemask;
+//    /*
+//       Round to a multiple of page size.
+//       If MORECORE is not contiguous, this ensures that we only call it
+//       with whole-page arguments.  And if MORECORE is contiguous and
+//       this is not first time through, this preserves page-alignment of
+//       previous calls. Otherwise, we correct to page-align below.
+//       */
+//
+//    size = (size + pagemask) & ~pagemask;
 
     /*
        Don't try to call MORECORE if argument is so big as to appear
@@ -500,7 +500,7 @@ static void* __malloc_alloc(size_t nb, mstate av)
        */
 
     if (size > 0)
-	fst_brk = (char*)(MORECORE(size));
+	fst_brk = (char*)(AB_MORECORE(size));
 
     /*
        If have mmap, try using it as a backup when MORECORE fails or
@@ -513,9 +513,9 @@ static void* __malloc_alloc(size_t nb, mstate av)
 
     if (fst_brk == (char*)(MORECORE_FAILURE)) {
 
-	/* Cannot merge with old top, so add its size back in */
-	if (contiguous(av))
-	    size = (size + old_size + pagemask) & ~pagemask;
+//	/* Cannot merge with old top, so add its size back in */
+//	if (contiguous(av))
+//	    size = (size + old_size + pagemask) & ~pagemask;
 
 	/* If we are relying on mmap as backup, then use larger units */
 	if ((unsigned long)(size) < (unsigned long)(MMAP_AS_MORECORE_SIZE))
@@ -524,7 +524,7 @@ static void* __malloc_alloc(size_t nb, mstate av)
 	/* Don't try if size wraps around 0 */
 	if ((unsigned long)(size) > (unsigned long)(nb)) {
 
-	    fst_brk = (char*)(MMAP(0, size, PROT_READ|PROT_WRITE));
+	    fst_brk = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
 
 	    if (fst_brk != (char*)(MORECORE_FAILURE)) {
 
@@ -664,7 +664,7 @@ static void* __malloc_alloc(size_t nb, mstate av)
 
 		/* Find out current end of memory */
 		if (snd_brk == (char*)(MORECORE_FAILURE)) {
-		    snd_brk = (char*)(MORECORE(0));
+		    snd_brk = (char*)(AB_MORECORE(0));
 		    av->sbrked_mem += snd_brk - fst_brk - size;
 		}
 	    }
@@ -739,6 +739,10 @@ static void* __malloc_alloc(size_t nb, mstate av)
 	    set_head(p, nb | PREV_INUSE);
 	    set_head(remainder, remainder_size | PREV_INUSE);
 	    check_malloced_chunk(p, nb);
+
+	    //update protection for other threads
+	    prot_update(pid, p, size, L);
+
 	    return chunk2mem(p);
 	}
 
@@ -800,8 +804,8 @@ static int __malloc_largebin_index(unsigned int sz)
  * ----------------------------------------------------------------------*/
 
 
-/* ------------------------------ malloc ------------------------------ */
-void* ablib_malloc(size_t bytes, label_t L)
+/* ------------------------------ ablib_malloc ------------------------------ */
+void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
 {
     mstate av;
 
@@ -834,7 +838,13 @@ void* ablib_malloc(size_t bytes, label_t L)
 #endif
 
     __MALLOC_LOCK;
+
+    /* If call ablib_malloc with a new label, allocate mstate */
     av = lookup_mstate_by_label(L);
+    if (av == NULL) {
+    	av == (mstate)malloc(sizeof(struct malloc_state));
+    }
+    
     /*
        Convert request size to internal form by adding (sizeof(size_t)) bytes
        overhead plus possibly more to obtain necessary alignment and/or
@@ -1159,7 +1169,7 @@ use_top:
     }
 
     /* If no space in top, relay to handle system-dependent cases */
-    sysmem = __malloc_alloc(nb, av);
+    sysmem = __malloc_alloc(pid, nb, av, L);
     retval = sysmem;
 DONE:
     __MALLOC_UNLOCK;

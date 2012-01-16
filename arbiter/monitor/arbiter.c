@@ -24,8 +24,12 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	struct abreq_fork *forkreq = (struct abreq_fork *)hdr;
 	AB_INFO("Processing fork \n");
 
+	//TODO label check
+
 	//TODO allocate a new struct client_desc for new thread...
 	// add new thread to linked list...
+	
+	//TODO set up page tables for existing allocated memory
 			
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
@@ -50,9 +54,11 @@ static void handle_malloc_rpc(struct arbiter_thread *abt,
 	size = mallocreq->size;
 	label = mallocreq->label;
 
+	//TODO label check
+
 	//FIXME ablib_malloc() redesgin (in progress)
-	ptr = ablib_malloc(size);
-			
+	ptr = ablib_malloc(size, label);
+
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
 	rply.return_val = ptr;
@@ -101,8 +107,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		return;
 	}
 	
-	//TODO retrive the client information according to the
-	//client socket addr
+	//retrive the client information according to the client socket addr
 	c = arbiter_lookup_client(abt, req->client_addr, req->client_addr_len);
 
 	if (c == NULL) {
@@ -132,7 +137,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_free_rpc(abt, c, req, hdr);
 		break;
 	}
-	//more to add
+	//TODO more to add
 
 	default:
 		AB_MSG("arbiter rpc: Invallid OP code!\n");

@@ -10,9 +10,6 @@
 struct arbiter_thread {
 	//unix domain socket for client connections
 	int monitor_sock;
-
-	//TODO More to add... e.g., child thread table...
-	//TODO check with Xi: how?
 	
 	//list for active clients
 	struct linked_list client_list;

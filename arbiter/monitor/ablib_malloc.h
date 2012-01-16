@@ -638,7 +638,7 @@ nextchunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 typedef struct malloc_chunk* mbinptr;
 
 /* addressing -- note that bin_at(0) does not exist */
-#define bin_at(m, i) ((mbinptr)((char*)&((m)->bins[(i)<<1]) - ((sizeof(size_t))<<1)))
+#define bin_at(m, i) ( (mbinptr)( (char*)&((m)->bins[(i)<<1]) - ((sizeof(size_t))<<1) ) )
 
 /* analog of ++bin */
 #define next_bin(b)  ((mbinptr)((char*)(b) + (sizeof(mchunkptr)<<1)))
@@ -975,9 +975,9 @@ extern void __do_check_malloc_state(void);
 
 #endif
 
-/*
-  -------------- ArbiterThread allocator support ----------------
-*/
+/* ************** ArbiterThread allocator support *********************** */
+
+/* -----------------------  Unit representations ----------------------- */
 /*  
   AB-Heap (or exchange heap, shared heap, channel heap) is dividided into 
   lots of memory units. Each unit represent a particular label. Inside 
@@ -1000,7 +1000,7 @@ extern void __do_check_malloc_state(void);
       |    |                                                               |
       |    |                                                               |
   unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-           |header|                                                        |   
+           |header|                                                        |
            |                                                               |
            |                                                               |
            |                                                               |
@@ -1011,6 +1011,8 @@ extern void __do_check_malloc_state(void);
 #define UNIT_ALIGNMENT	(PAGE_PER_UNIT*malloc_getpagesize)
 #define UNIT_ALIGN_MASK	(~(UNIT_ALIGNMENT - 1))
 
+#define UNIT_SIZE UNIT_ALIGNMENT	//alias for (4MB) unit size
+
 struct unit_header {
 	label_t label;
 	struct unit_header *next;
@@ -1018,12 +1020,21 @@ struct unit_header {
 	mstate unit_av;
 };
 
+/* ----------------------- abheap definition ----------------------- */
 
 //mstates for different set of units are stored in a linked list
-extern struct linked_list __malloc_state_list;
+extern struct abheap_state __abheap_state;
 
-#define get_malloc_state_list()	(&(__malloc_state_list))
+#define get_abheap_state()	(&(__abheap_state))
 
+struct abheap_state {
+
+	mchunkptr ab_top;
+
+	struct linked_list malloc_state_list;
+};
+
+/* ----------------------- mstate retrival ----------------------- */
 
 //look up mstate by label, called by ablib_malloc()
 static bool _cmp_mstate(const void *key, const void* data)
@@ -1057,4 +1068,27 @@ static mstate lookup_mstate_by_mem(void *ptr)
 	hdr = get_unit_header(ptr);
 	return (hdr->unit_av);
 }
+
+/* ----------------------- Syscall support  ----------------------- */
+
+#ifndef AB_MORECORE
+#define AB_MORECORE ablib_sbrk
+#endif
+
+#define AB_MMAP(pid, addr, size, prot) \
+ (absys_mmap((pid), (addr), (size), (prot), MAP_PRIVATE|MAP_ANONYMOUS, 0, 0))
+ 
+/* ----------------------- protection update  ----------------------- */
+
+// update protection for other thread according to label comparision 
+static void prot_update(pid_t pid, void *p, long size, label_t L)
+{
+	//TODO 
+	/* list_for_each thread
+	 * do label check to determine protection
+	 * call absys_mprotect() to set protection
+	 */
+}
+
+
 #endif //_ABLIB_MALLOC_H

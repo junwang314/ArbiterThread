@@ -18,6 +18,7 @@ ARBITER_SRCS=\
 	ablib_malloc.c \
 	ablib_free.c \
 	client.c \
+	label.c \
 
 LIB_COMMON=$(AB_ROOT)/common/lib/
 

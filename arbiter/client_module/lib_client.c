@@ -152,7 +152,8 @@ pid_t ab_fork(label_t L, capset O)
 	}
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
-		//TODO check with Xi: correct or not? (abrpc_client_state?)
+		//TODO check with Xi: 
+		//correct or not? (only one instance of abrpc_client_state?)
 		init_client_state();
 	}
 	if (pid > 0){ //parent thread

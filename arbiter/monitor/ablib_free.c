@@ -46,7 +46,7 @@ static int __malloc_trim(size_t pad, mstate av)
 	   Only proceed if end of memory is where we last set it.
 	   This avoids problems if there were foreign sbrk calls.
 	   */
-	current_brk = (char*)(MORECORE(0));
+	current_brk = (char*)(MORECORE(0));  //TODO add sbrk(), i.e. AB_MORECORE
 	if (current_brk == (char*)(av->top) + top_size) {
 
 	    /*
@@ -104,7 +104,7 @@ static int __malloc_trim(size_t pad, mstate av)
 */
 int malloc_trim(size_t pad)
 {
-  mstate av = get_malloc_state(); //FIXME
+  mstate av = get_malloc_state(); //FIXME 
   __malloc_consolidate(av);
   return __malloc_trim(pad, av);
 }
@@ -147,7 +147,7 @@ static void malloc_init_state(mstate av)
     av->pagesize       = malloc_getpagesize;
     
     // add new mstate to the mstate list
-    list_insert_tail(get_malloc_state_list(), (void *)av);
+    list_insert_tail(&(get_abheap_state()->malloc_state_list), (void *)av);
 }
 
 
@@ -259,8 +259,8 @@ void attribute_hidden __malloc_consolidate(mstate av)
 	} while (fb++ != maxfb);
     }
     else {
-    	if (get_malloc_state_list()->num == 0) { //initialize mstate list
-    		init_linked_list(get_malloc_state_list());
+    	if (get_abheap_state()->malloc_state_list.num == 0) { //initialize mstate list
+    		init_linked_list(&(get_abheap_state()->malloc_state_list));
     	}
 	malloc_init_state(av);
 	check_malloc_state();
@@ -269,7 +269,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 
 
 /* ------------------------------ free ------------------------------ */
-void ablib_free(void* mem)
+void ablib_free(pid_t pid, void* mem)
 {
     mstate av;
 
