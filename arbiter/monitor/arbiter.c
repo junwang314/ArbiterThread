@@ -20,14 +20,46 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 			    struct abt_request *req, 
 			    struct rpc_header *hdr)
 {
+	int L1, L2; //FIXME label type: uint32_t or label_t?
+	capset O1, O2;
+	struct client_desc *c_new;
 	struct abt_reply_header rply;
 	struct abreq_fork *forkreq = (struct abreq_fork *)hdr;
 	AB_INFO("Processing fork \n");
+	
+	L1 = c->label
+	O1 = c->ownership;
+	L2 = forkreq->label;
+	O2 = forkreq->ownership;
 
-	//TODO label check
+	//label check
+	if ( check_label(L1, O1, L2, O2) ) {
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+		rply.return_val = -1; //-1 indicate failure
 
-	//TODO allocate a new struct client_desc for new thread...
-	// add new thread to linked list...
+	//report voilation
+		
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+
+	//allocate a new struct client_desc for new thread
+	c_new = (client_desc *)malloc(sizeof(struct client_desc);
+	memset(c_new, 0, sizeof(c_new));
+
+	//fill out client_desc for the new thread... TODO check with Xi
+	memcpy(	&(c_new->client_addr.unix_addr), 
+		&(req->client_addr), 
+		sizeof(req->client_addr));  //?
+	c_new->client_addr.addr_len = req->client_addr_len;  //?
+	
+	c_new->pid = forkreq->pid;
+	c_new->label = L2;
+	c_new->ownership = O2;
+	
+	//add new thread to linked list	
+	list_insert_tail(&(arbiter->client_list), (void *)c_new);
 	
 	//TODO set up page tables for existing allocated memory
 			
@@ -46,18 +78,36 @@ static void handle_malloc_rpc(struct arbiter_thread *abt,
 {
 	void *ptr;
 	size_t size;
-	int label; //FIXME label type: uint32_t or label_t?
+	int L1, L2; //FIXME label type: uint32_t or label_t?
+	pid_t pid;
+	capset O1;
 	struct abt_reply_header rply;
 	struct abreq_malloc *mallocreq = (struct abreq_malloc *)hdr;
 	AB_INFO("Processing malloc \n");
 
 	size = mallocreq->size;
-	label = mallocreq->label;
+	L2 = mallocreq->label;
 
-	//TODO label check
+	pid = c->pid;
+	L1 = c->label
+	O1 = c->ownership;
+
+	//label check	
+	if ( check_label(L1, O1, L2, NULL) ) {
+		ptr = NULL;
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+		rply.return_val = ptr;
+
+	//report voilatioin
+	
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+	
 
 	//FIXME ablib_malloc() redesgin (in progress)
-	ptr = ablib_malloc(size, label);
+	ptr = ablib_malloc(pid, size, L2);
 
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
@@ -110,7 +160,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	//retrive the client information according to the client socket addr
 	c = arbiter_lookup_client(abt, req->client_addr, req->client_addr_len);
 
-	if (c == NULL) {
+	if (c == NULL && hdr->opcode != ABTFORK ) { //TODO: check with Xi
 		AB_MSG("arbiter: unknown client\n");
 		return;
 	}

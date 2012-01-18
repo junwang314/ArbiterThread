@@ -344,7 +344,7 @@ void __do_check_malloc_state(void)
 static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 {
     mchunkptr       old_top;        /* incoming value of av->top */
-    size_t old_size;       /* its size */
+    size_t          old_size;       /* its size */
     char*           old_end;        /* its end address */
 
     long            size;           /* arg to first MORECORE or mmap call */
@@ -353,8 +353,8 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     long            correction;     /* arg to 2nd MORECORE call */
     char*           snd_brk;        /* 2nd return val */
 
-    size_t front_misalign; /* unusable bytes at front of new space */
-    size_t end_misalign;   /* partial page left at end of new space */
+    size_t          front_misalign; /* unusable bytes at front of new space */
+    size_t          end_misalign;   /* partial page left at end of new space */
     char*           aligned_brk;    /* aligned offset into brk */
 
     mchunkptr       p;              /* the allocated/returned chunk */
@@ -376,7 +376,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     if (have_fastchunks(av)) {
 	assert(in_smallbin_range(nb));
 	__malloc_consolidate(av);
-	return malloc(nb - MALLOC_ALIGN_MASK);
+	return ablib_malloc(pid, nb - MALLOC_ALIGN_MASK, L);
     }
 
 
@@ -627,7 +627,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		correction += ((end_misalign + pagemask) & ~pagemask) - end_misalign;
 
 		assert(correction >= 0);
-		snd_brk = (char*)(MORECORE(correction));
+		snd_brk = (char*)(AB_MORECORE(correction));
 
 		if (snd_brk == (char*)(MORECORE_FAILURE)) {
 		    /*
@@ -635,7 +635,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		       brk.  It might be enough to proceed without failing.
 		       */
 		    correction = 0;
-		    snd_brk = (char*)(MORECORE(0));
+		    snd_brk = (char*)(AB_MORECORE(0));
 		}
 		else if (snd_brk < fst_brk) {
 		    /*
@@ -830,6 +830,9 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
     void *          sysmem;
     void *          retval;
 
+    //get av
+    av = lookup_mstate_by_label(L);
+
 #if !defined(__MALLOC_GLIBC_COMPAT__)
     if (!bytes) {
         __set_errno(ENOMEM);
@@ -843,6 +846,7 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
     av = lookup_mstate_by_label(L);
     if (av == NULL) {
     	av == (mstate)malloc(sizeof(struct malloc_state));
+    	memset(av, 0, sizeof(struct malloc_state));
     }
     
     /*
@@ -862,7 +866,7 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
     if (!have_anychunks(av)) {
 	if (av->max_fast == 0) /* initialization check */
 	    __malloc_consolidate(av);
-	goto use_top;
+	goto use_unit_top;
     }
 
     /*
@@ -1072,7 +1076,7 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
 	if (bit > map || bit == 0) {
 	    do {
 		if (++block >= BINMAPSIZE)  /* out of bins */
-		    goto use_top;
+		    goto use_unit_top;
 	    } while ( (map = av->binmap[block]) == 0);
 
 	    bin = bin_at(av, (block << BINMAPSHIFT));
@@ -1137,7 +1141,7 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
 	}
     }
 
-use_top:
+use_unit_top:
     /*
        If large enough, split off the chunk bordering the end of memory
        (held in av->top). Note that this is in accord with the best-fit
@@ -1152,20 +1156,47 @@ use_top:
        reason for ensuring it exists is that we may need MINSIZE space
        to put in fenceposts in sysmalloc.)
        */
+       
+    while ( (victim = unit_tops(av)->bk) != unit_tops(av) ) {
+	size = chunksize(victim);
+	if ((unsigned long)(size) >= (unsigned long)(nb + MINSIZE)) {
+		remainder_size = size - nb;
+		remainder = chunk_at_offset(victim, nb);
+		
+		/* place remainder back to the topbin */		
+		bck = unit_tops(av)->bk;
+		fwd = bck->fd;
 
-    victim = av->top;
-    size = chunksize(victim);
+		if (fwd != bck) {
+			/* if smaller than smallest, place first */
+			if ((unsigned long)(size) < 
+				(unsigned long)(bck->bk->size)) {
+				fwd = bck;
+				bck = bck->bk;
+			}
+			else if ((unsigned long)(size) >=
+				(unsigned long)(MINSIZE)) {
 
-    if ((unsigned long)(size) >= (unsigned long)(nb + MINSIZE)) {
-	remainder_size = size - nb;
-	remainder = chunk_at_offset(victim, nb);
-	av->top = remainder;
-	set_head(victim, nb | PREV_INUSE);
-	set_head(remainder, remainder_size | PREV_INUSE);
+			    /* maintain topbin in sorted order */
+			    size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
+			    while ((unsigned long)(size) < (unsigned long)(fwd->size))
+				fwd = fwd->fd;
+			    bck = fwd->bk;
+			}
+		}
 
-	check_malloced_chunk(victim, nb);
-	retval = chunk2mem(victim);
-	goto DONE;
+		remainder->bk = bck;
+		remainder->fd = fwd;
+		fwd->bk = remainder;
+		bck->fd = remainder;
+		
+		set_head(victim, nb | PREV_INUSE);
+		set_head(remainder, remainder_size | PREV_INUSE);
+
+		check_malloced_chunk(victim, nb);
+		retval = chunk2mem(victim);
+		goto DONE;
+	}
     }
 
     /* If no space in top, relay to handle system-dependent cases */

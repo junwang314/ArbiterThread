@@ -38,6 +38,7 @@ struct abt_reply_header {
 //AbThread API requests
 struct abreq_fork{
 	struct rpc_header hdr;
+	pid_t pid;
 	label_t label;
 	capset ownership;
 };

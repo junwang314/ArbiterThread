@@ -3,6 +3,13 @@
 
 #include <ab_api.h>
 
+//OPcode label check result
+enum label_check_result {
+	PROT_N,
+	PROT_R,
+	PROT_RW
+};
+
 /* check label according to RULE #1-3:
  * - if creating an object capset O2 can be NULL  
  * - return 0 if label check OK (pass), -1 if fail

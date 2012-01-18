@@ -641,7 +641,7 @@ typedef struct malloc_chunk* mbinptr;
 #define bin_at(m, i) ( (mbinptr)( (char*)&((m)->bins[(i)<<1]) - ((sizeof(size_t))<<1) ) )
 
 /* analog of ++bin */
-#define next_bin(b)  ((mbinptr)((char*)(b) + (sizeof(mchunkptr)<<1)))
+#define next_bin(b)  ( (mbinptr)( (char*)(b) + (sizeof(mchunkptr)<<1) ) )
 
 /* Reminders about list directionality within bins */
 #define first(b)     ((b)->fd)
@@ -762,7 +762,7 @@ typedef struct malloc_chunk* mbinptr;
 #define BINMAPSIZE       (NBINS / BITSPERMAP)
 
 #define idx2block(i)     ((i) >> BINMAPSHIFT)
-#define idx2bit(i)       ((1U << ((i) & ((1U << BINMAPSHIFT)-1))))
+#define idx2bit(i)       (( 1U << ((i) & ((1U << BINMAPSHIFT)-1)) ))
 
 #define mark_bin(m,i)    ((m)->binmap[idx2block(i)] |=  idx2bit(i))
 #define unmark_bin(m,i)  ((m)->binmap[idx2block(i)] &= ~(idx2bit(i)))
@@ -869,52 +869,52 @@ typedef struct malloc_chunk* mfastbinptr;
 */
 
 struct malloc_state {
-  /* Label */
-  label_t label;
+	/* Label */
+	label_t label;
   
-  /* list for unit header */
-  struct linked_list unit_hdr_list;
+	/* list for unit header */
+	struct linked_list unit_hdr_list;
 
-  /* The maximum chunk size to be eligible for fastbin */
-  size_t  max_fast;   /* low 2 bits used as flags */
+	/* The maximum chunk size to be eligible for fastbin */
+	size_t  max_fast;   /* low 2 bits used as flags */
 
-  /* Fastbins */
-  mfastbinptr      fastbins[NFASTBINS];
+	/* Fastbins */
+	mfastbinptr      fastbins[NFASTBINS];
 
-  /* Base of the topmost chunk -- not otherwise kept in a bin */
-  mchunkptr        top;
+	/* Base of the topmost chunks -- not otherwise kept in a bin */
+	mtopbin		 topbin;
 
-  /* The remainder from the most recent split of a small request */
-  mchunkptr        last_remainder;
+	/* The remainder from the most recent split of a small request */
+	mchunkptr        last_remainder;
 
-  /* Normal bins packed as described above */
-  mchunkptr        bins[NBINS * 2];
+	/* Normal bins packed as described above */
+	mchunkptr        bins[NBINS * 2];
 
-  /* Bitmap of bins. Trailing zero map handles cases of largest binned size */
-  unsigned int     binmap[BINMAPSIZE+1];
+	/* Bitmap of bins. Trailing zero map handles cases of largest binned size */
+	unsigned int     binmap[BINMAPSIZE+1];
 
-  /* Tunable parameters */
-  unsigned long     trim_threshold;
-  size_t  top_pad;
-  size_t  mmap_threshold;
+	/* Tunable parameters */
+	unsigned long    trim_threshold;
+	size_t  top_pad;
+	size_t  mmap_threshold;
 
-  /* Memory map support */
-  int              n_mmaps;
-  int              n_mmaps_max;
-  int              max_n_mmaps;
+	/* Memory map support */
+	int              n_mmaps;
+	int              n_mmaps_max;
+	int              max_n_mmaps;
 
-  /* Cache malloc_getpagesize */
-  unsigned int     pagesize;
+	/* Cache malloc_getpagesize */
+	unsigned int     pagesize;
 
-  /* Track properties of MORECORE */
-  unsigned int     morecore_properties;
+	/* Track properties of MORECORE */
+	unsigned int     morecore_properties;
 
-  /* Statistics */
-  size_t  mmapped_mem;
-  size_t  sbrked_mem;
-  size_t  max_sbrked_mem;
-  size_t  max_mmapped_mem;
-  size_t  max_total_mem;
+	/* Statistics */
+	size_t  mmapped_mem;
+	size_t  sbrked_mem;
+	size_t  max_sbrked_mem;
+	size_t  max_mmapped_mem;
+	size_t  max_total_mem;
 };
 
 typedef struct malloc_state *mstate;
@@ -993,12 +993,12 @@ extern void __do_check_malloc_state(void);
       +----|header|  chunks   |            |                |              |   
       |    |             |                                                 |
       |    |                             ...                               |
-      |    |                                                               |
+      |    |                                                  |  unit_top  |
   unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
       +----|header|                                                        |   
       |    |                                                               |
       |    |                                                               |
-      |    |                                                               |
+      |    |                                 |           unit_top          |
   unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
            |header|                                                        |
            |                                                               |
@@ -1014,11 +1014,41 @@ extern void __do_check_malloc_state(void);
 #define UNIT_SIZE UNIT_ALIGNMENT	//alias for (4MB) unit size
 
 struct unit_header {
-	label_t label;
-	struct unit_header *next;
-	mchunkptr unit_top;
 	mstate unit_av;
+	mchunkptr unit_top;
+	label_t label;
 };
+
+/*
+  Topbin:
+
+    The bin header for free unit_tops. Each unit_top is doubly
+    linked.  There is exactly one unit_top per unit. They serves
+    the similar purpose as the traditional tops: an "unlimited"
+    resource for free chunk request. Instead of one instance of 
+    top chunk, several unit_top chunks may exist at the same time. 
+    And they are are kept in size order to achieve the best-fit
+    principle.  
+    
+    In case of running out of existing unit_top in the topbin, 
+    system allocation routine __malloc_alloc() will be called to 
+    allocate a brandnew unit, which will be add to the topbin as 
+    a whole. The rest work is just to treat this new unit as the
+    traditional top and use traditional chunk management strategy
+    to do allocation.
+
+    Similar as the bins, a malloc chunk is used as the topbin header. 
+    But to conserve space and improve locality, we allocate
+    only the fd/bk pointers of bins, and then use repositioning tricks
+    to treat these as the fields of a malloc_chunk*.
+*/
+
+struct mtopbin {
+	struct malloc_chunk* fd;         /* double links */
+	struct malloc_chunk* bk;
+};
+
+#define unit_tops(m) (m->topbin)  
 
 /* ----------------------- abheap definition ----------------------- */
 
@@ -1049,7 +1079,7 @@ static bool _cmp_mstate(const void *key, const void* data)
 
 static mstate lookup_mstate_by_label(label_t L)
 {
-	return (mstate) linked_list_lookup(get_malloc_state_list(),
+	return (mstate) linked_list_lookup(get_abheap_state()->malloc_state_list,
 					   &L, 
 					   _cmp_mstate);
 }
@@ -1088,6 +1118,39 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 	 * do label check to determine protection
 	 * call absys_mprotect() to set protection
 	 */
+	struct arbiter_thread *abt; 
+	struct linked_list *list; 
+	struct list_node *ptr;
+	struct client_desc *c;
+	pid_t pid_tmp;
+	label_t L;
+	capset O;
+	int prot;
+	int pv;
+		
+	abt = &(arbiter);
+	list = &(abt->client_list);
+	
+	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
+		c= ptr->data;
+		
+		pid_tmp = c->pid;
+		if (pid_tmp == pid) {
+			continue;
+		}
+		L = c->label
+		O = c->ownership;
+		
+		pv = check_label(L1, O1, L2, O2);
+		switch(pv) {
+			case PROT_N: ret = PROT_NONE; break;		
+			case PROT_R: ret = PROT_READ; break;		
+			case PROT_RW: ret = PROT_READ | PROT_WRITE; break;
+			default: ret = PROT_NONE;
+		}
+		//set protection on page table
+		absys_mprotect(tmp_pid, p, size, prot);
+	}
 }
 
 
