@@ -143,7 +143,8 @@ static void malloc_init_state(mstate av)
 
     set_max_fast(av, DEFAULT_MXFAST);
 
-    av->top            = initial_top(av);
+    //av->top            = initial_top(av);
+    unit_tops(av)->fd = unit_tops(av)->bk = &unit_tops(av); //init av->unit_top
     av->pagesize       = malloc_getpagesize;
     
     // add new mstate to the mstate list

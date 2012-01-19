@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
+#inlcude <ablib_malloc.h>
 
 /* Defined in ablib_brk.c.  */
 extern void *__curbrk;
@@ -17,6 +18,9 @@ __sbrk (intptr_t increment)
 {
   void *oldbrk;
 
+  //make sure increment is UNIT_SIZE
+  assert(increment == UNIT_SIZE);
+  
   /* If this is not part of the dynamic library or the library is used
      via dynamic loading in a statically linked program update
      __curbrk from the kernel's brk value.  That way two separate

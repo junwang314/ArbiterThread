@@ -1043,12 +1043,10 @@ struct unit_header {
     to treat these as the fields of a malloc_chunk*.
 */
 
-struct mtopbin {
-	struct malloc_chunk* fd;         /* double links */
-	struct malloc_chunk* bk;
-};
+typedef struct malloc_chunk mtopbin;
 
-#define unit_tops(m) (m->topbin)  
+#define unit_tops(M) (M->topbin)
+
 
 /* ----------------------- abheap definition ----------------------- */
 
@@ -1079,7 +1077,7 @@ static bool _cmp_mstate(const void *key, const void* data)
 
 static mstate lookup_mstate_by_label(label_t L)
 {
-	return (mstate) linked_list_lookup(get_abheap_state()->malloc_state_list,
+	return (mstate)linked_list_lookup(get_abheap_state()->malloc_state_list,
 					   &L, 
 					   _cmp_mstate);
 }
@@ -1153,5 +1151,12 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 	}
 }
 
+/* ------------------------------- Misc  ---------------------------- */
+
+//touch the allocated memory so that physical pages are mapped to arbiter
+static void touch_mem(void *p, long size)
+{
+	memset(p, 0, size); //check with Xi: effecient?
+}
 
 #endif //_ABLIB_MALLOC_H
