@@ -24,8 +24,8 @@ struct client_desc {
 	uint32_t pid;
 
 	//security information: label and ownership
-	label_t label;
-	capset ownership;
+	uint64_t label;
+	uint64_t ownership;
 	
 };
 

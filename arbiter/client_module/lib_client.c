@@ -99,20 +99,22 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 
 /************ Client state descriptor **************/
 
+//TODO: question for Xi: how about the forked threads, when are those states initialized?
 struct abrpc_client_state _abclient;
 
-static inline struct abrpc_client_state *get_state()
+static inline struct abrpc_client_state *get_state() //TODO: question for Xi: why needed?
 {
 	//need lock in future?
 	return &_abclient;
 }
 
-void init_client_state()
+void init_client_state(label_t L, own_t O)
 {
 	struct abrpc_client_state *cli_state = get_state();
 
-	//TODO init other state
 	cli_state->pid = (int) getpid();
+	cli_state->label = *L;
+	cli_state->ownership = *O;
 
 	//ipc init
 	init_client_ipc(cli_state);
@@ -121,7 +123,7 @@ void init_client_state()
 
 /**************** API wrappers *******************/
 
-pid_t ab_fork(label_t L, capset O)
+pid_t ab_fork(label_t L, own_t O)
 {
 	pid_t pid;
 	struct abreq_fork req;
@@ -133,8 +135,8 @@ pid_t ab_fork(label_t L, capset O)
 	req.hdr.msg_len = sizeof(req);
 	req.hdr.opcode = ABT_FORK;
 
-	req.label = *(label_t *) &L;
-	req.ownership = *(capset *) &O;
+	req.label = *(uint64_t *) L;
+	req.ownership = *(uint64_t *) O;
 	_client_rpc(state, &req.hdr, &rply);
 
 	//not an malformed message
@@ -154,7 +156,7 @@ pid_t ab_fork(label_t L, capset O)
 		absys_thread_control(AB_SET_ME_SPECIAL);
 		//TODO check with Xi: 
 		//correct or not? (only one instance of abrpc_client_state?)
-		init_client_state();
+		init_client_state(L, O);
 	}
 	if (pid > 0){ //parent thread
 		return pid;
@@ -182,8 +184,6 @@ void ab_free(void *ptr)
 	//no return value needed	
 }
 
-//To Jun: could the label type be shrink to 32 bit?
-//TODO check with Xi: let's not shrink the label type
 void *ab_malloc(size_t size, label_t L)
 {
 	struct abreq_malloc req;
@@ -197,8 +197,7 @@ void *ab_malloc(size_t size, label_t L)
 
 	req.size = (uint32_t) size;
 
-	//FIXME:
-	req.label = *(uint32_t *) &L;
+	req.label = *(uint64_t *) L;
 	_client_rpc(state, &req.hdr, &rply);
 
 	//not an malformed message
@@ -208,4 +207,37 @@ void *ab_malloc(size_t size, label_t L)
 	return (void *)rply.return_val;
 }
 
+/* create a category */
+cat_t create_category(cat_type t)
+{
+
+}
+
+/* get label of itself */
+cat_t *get_label(void)
+{
+	struct abrpc_client_state *cli_state = get_state();
+	return (cli_state->label);
+}		
+
+/* get the capability set of itself */
+cat_t *get_ownership(void)
+{
+	struct abrpc_client_state *cli_state = get_state();
+	return (cli_state->ownership);
+}
+
+/* get the label of a memory object */
+cat_t *get_mem_label(void *ptr)
+{
+	label_t L;
+	return L;
+}
+
+/* copy and relabel a memeory object */
+void *ab_memcpy(void *dest, const void *src, size_t n, label_t L)
+{
+	
+	return src;
+}
 

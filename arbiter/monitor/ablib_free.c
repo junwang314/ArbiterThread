@@ -35,7 +35,7 @@ static int __malloc_trim(size_t pad, mstate av)
     size_t pagesz;
 
     pagesz = av->pagesize;
-    top_size = chunksize(av->top);
+    top_size = chunksize(get_abheap_state()->ab_top);
 
     /* Release in pagesize units, keeping at least one page */
     extra = ((top_size - pad - MINSIZE + (pagesz-1)) / pagesz - 1) * pagesz;
@@ -47,7 +47,7 @@ static int __malloc_trim(size_t pad, mstate av)
 	   This avoids problems if there were foreign sbrk calls.
 	   */
 	current_brk = (char*)(MORECORE(0));  //TODO add sbrk(), i.e. AB_MORECORE
-	if (current_brk == (char*)(av->top) + top_size) {
+	if (current_brk == (char*)(get_abheap_state()->ab_top) + top_size) {
 
 	    /*
 	       Attempt to release memory. We ignore MORECORE return value,
@@ -68,7 +68,7 @@ static int __malloc_trim(size_t pad, mstate av)
 		if (released != 0) {
 		    /* Success. Adjust top. */
 		    av->sbrked_mem -= released;
-		    set_head(av->top, (top_size - released) | PREV_INUSE);
+		    set_head(get_abheap_state()->ab_top, (top_size - released) | PREV_INUSE);
 		    check_malloc_state();
 		    return 1;
 		}
@@ -144,7 +144,7 @@ static void malloc_init_state(mstate av)
     set_max_fast(av, DEFAULT_MXFAST);
 
     //av->top            = initial_top(av);
-    unit_tops(av)->fd = unit_tops(av)->bk = &unit_tops(av); //init av->unit_top
+    unit_tops(av)->fd = unit_tops(av)->bk = unit_tops(av); //init av->unit_top
     av->pagesize       = malloc_getpagesize;
     
     // add new mstate to the mstate list

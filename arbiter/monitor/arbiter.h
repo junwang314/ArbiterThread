@@ -15,5 +15,6 @@ struct arbiter_thread {
 	struct linked_list client_list;
 };
 
+extern struct arbiter_thread arbiter;
 
 #endif  //_ARBITER_H

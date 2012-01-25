@@ -37,6 +37,11 @@
 #include <ab_debug.h>
 #include <lib/linked_list.h>
 
+#include "arbiter.h" /* struct arbiter_thread */
+#include "label.h" /* PROT_N, PROT_R, PROT_WR */
+#include "client.h"
+#include <stdint.h>
+
 extern pthread_mutex_t __malloc_lock;
 #define __MALLOC_LOCK		pthread_mutex_lock(&__malloc_lock);
 #define __MALLOC_UNLOCK		pthread_mutex_unlock(&__malloc_lock);
@@ -863,6 +868,33 @@ typedef struct malloc_chunk* mfastbinptr;
 #define set_noncontiguous(M) \
         ((M)->morecore_properties &= ~MORECORE_CONTIGUOUS_BIT)
 
+/*
+  Topbin:
+
+    The bin header for free unit_tops. Each unit_top is doubly
+    linked.  There is exactly one unit_top per unit. They serves
+    the similar purpose as the traditional tops: an "unlimited"
+    resource for free chunk request. Instead of one instance of 
+    top chunk, several unit_top chunks may exist at the same time. 
+    And they are are kept in size order to achieve the best-fit
+    principle.  
+    
+    In case of running out of existing unit_top in the topbin, 
+    system allocation routine __malloc_alloc() will be called to 
+    allocate a brandnew unit, which will be add to the topbin as 
+    a whole. The rest work is just to treat this new unit as the
+    traditional top and use traditional chunk management strategy
+    to do allocation.
+
+    Similar as the bins, a malloc chunk is used as the topbin header. 
+    But to conserve space and improve locality, we allocate
+    only the fd/bk pointers of bins, and then use repositioning tricks
+    to treat these as the fields of a malloc_chunk*.
+*/
+
+typedef struct malloc_chunk mtopbin;
+
+#define unit_tops(M) (&(M->topbin))
 
 /*
    ----------- Internal state representation and initialization -----------
@@ -1019,35 +1051,6 @@ struct unit_header {
 	label_t label;
 };
 
-/*
-  Topbin:
-
-    The bin header for free unit_tops. Each unit_top is doubly
-    linked.  There is exactly one unit_top per unit. They serves
-    the similar purpose as the traditional tops: an "unlimited"
-    resource for free chunk request. Instead of one instance of 
-    top chunk, several unit_top chunks may exist at the same time. 
-    And they are are kept in size order to achieve the best-fit
-    principle.  
-    
-    In case of running out of existing unit_top in the topbin, 
-    system allocation routine __malloc_alloc() will be called to 
-    allocate a brandnew unit, which will be add to the topbin as 
-    a whole. The rest work is just to treat this new unit as the
-    traditional top and use traditional chunk management strategy
-    to do allocation.
-
-    Similar as the bins, a malloc chunk is used as the topbin header. 
-    But to conserve space and improve locality, we allocate
-    only the fd/bk pointers of bins, and then use repositioning tricks
-    to treat these as the fields of a malloc_chunk*.
-*/
-
-typedef struct malloc_chunk mtopbin;
-
-#define unit_tops(M) (M->topbin)
-
-
 /* ----------------------- abheap definition ----------------------- */
 
 //mstates for different set of units are stored in a linked list
@@ -1065,37 +1068,10 @@ struct abheap_state {
 /* ----------------------- mstate retrival ----------------------- */
 
 //look up mstate by label, called by ablib_malloc()
-static bool _cmp_mstate(const void *key, const void* data)
-{
-	label_t *label = (label_t *)key;
-	mstate unit_av = (mstate)data;
-	
-	if (memcmp(label, &(unit_av->label), sizeof(label_t)) == 0)
-		return true;
-	return false;
-}
-
-static mstate lookup_mstate_by_label(label_t L)
-{
-	return (mstate)linked_list_lookup(get_abheap_state()->malloc_state_list,
-					   &L, 
-					   _cmp_mstate);
-}
-
-//locate the unit header using an address 
-static inline struct unit_header *get_unit_header(void *ptr)
-{
-	return (struct unit_header *)((unsigned long)ptr & UNIT_ALIGN_MASK);
-}
+mstate lookup_mstate_by_label(label_t L);
 
 //look up mstate by memory address, called by ablib_free()
-static mstate lookup_mstate_by_mem(void *ptr)
-{
-	struct unit_header *hdr;
-	
-	hdr = get_unit_header(ptr);
-	return (hdr->unit_av);
-}
+mstate lookup_mstate_by_mem(void *ptr);
 
 /* ----------------------- Syscall support  ----------------------- */
 
@@ -1105,58 +1081,21 @@ static mstate lookup_mstate_by_mem(void *ptr)
 
 #define AB_MMAP(pid, addr, size, prot) \
  (absys_mmap((pid), (addr), (size), (prot), MAP_PRIVATE|MAP_ANONYMOUS, 0, 0))
- 
-/* ----------------------- protection update  ----------------------- */
 
-// update protection for other thread according to label comparision 
-static void prot_update(pid_t pid, void *p, long size, label_t L)
-{
-	//TODO 
-	/* list_for_each thread
-	 * do label check to determine protection
-	 * call absys_mprotect() to set protection
-	 */
-	struct arbiter_thread *abt; 
-	struct linked_list *list; 
-	struct list_node *ptr;
-	struct client_desc *c;
-	pid_t pid_tmp;
-	label_t L;
-	capset O;
-	int prot;
-	int pv;
-		
-	abt = &(arbiter);
-	list = &(abt->client_list);
-	
-	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
-		c= ptr->data;
-		
-		pid_tmp = c->pid;
-		if (pid_tmp == pid) {
-			continue;
-		}
-		L = c->label
-		O = c->ownership;
-		
-		pv = check_label(L1, O1, L2, O2);
-		switch(pv) {
-			case PROT_N: ret = PROT_NONE; break;		
-			case PROT_R: ret = PROT_READ; break;		
-			case PROT_RW: ret = PROT_READ | PROT_WRITE; break;
-			default: ret = PROT_NONE;
-		}
-		//set protection on page table
-		absys_mprotect(tmp_pid, p, size, prot);
-	}
-}
+
+/* ------------------------- ablib declaration  --------------------- */
+void *ablib_malloc(pid_t pid, size_t bytes, label_t L);
+
+void ablib_free(pid_t pid, void* mem);
+
+static void prot_update(pid_t pid, void *p, long size, label_t L);
 
 /* ------------------------------- Misc  ---------------------------- */
 
 //touch the allocated memory so that physical pages are mapped to arbiter
-static void touch_mem(void *p, long size)
+static inline void touch_mem(void *p, long size)
 {
-	memset(p, 0, size); //check with Xi: effecient?
+	memset(p, 0, size);
 }
 
 #endif //_ABLIB_MALLOC_H

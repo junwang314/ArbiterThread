@@ -9,6 +9,10 @@
 struct abrpc_client_state {
 	//client process id
 	int pid;
+	
+	//label and ownership
+	label_t label;
+	own_t ownership;
 
 	//unix domain socket for connecting to arbiter
 	int client_sock;

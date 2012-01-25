@@ -343,9 +343,9 @@ void __do_check_malloc_state(void)
 */
 static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 {
-    mchunkptr       old_top;        /* incoming value of av->top */
-    size_t          old_size;       /* its size */
-    char*           old_end;        /* its end address */
+    mchunkptr       old_ab_top;        /* incoming value of av->top */
+    size_t          old_max_top_size;       /* its size */
+    char*           old_ab_end;        /* its end address */
 
     long            size;           /* arg to first MORECORE or mmap call */
     char*           fst_brk;        /* return value from MORECORE */
@@ -356,6 +356,9 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     size_t          front_misalign; /* unusable bytes at front of new space */
     size_t          end_misalign;   /* partial page left at end of new space */
     char*           aligned_brk;    /* aligned offset into brk */
+
+    mchunkptr       unit_top;
+    size_t          unit_top_size;
 
     mchunkptr       p;              /* the allocated/returned chunk */
     mchunkptr       remainder;      /* remainder from allocation */
@@ -376,7 +379,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     if (have_fastchunks(av)) {
 	assert(in_smallbin_range(nb));
 	__malloc_consolidate(av);
-	return ablib_malloc(pid, nb - MALLOC_ALIGN_MASK, L);
+	return (void *)ablib_malloc(pid, nb - MALLOC_ALIGN_MASK, L);
     }
 
 
@@ -455,7 +458,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     /* Record incoming configuration of top */
 
     old_ab_top = get_abheap_state()->ab_top;
-    old_ab_end = old_ab_top;
+    old_ab_end = (char *)old_ab_top;
     old_max_top_size = chunksize(unit_tops(av)->fd); 
     //old_end  = (char*)(chunk_at_offset(old_top, old_size));
 
@@ -821,7 +824,7 @@ static int __malloc_largebin_index(unsigned int sz)
 
 
 /* ------------------------------ ablib_malloc ------------------------------ */
-void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
+void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
 {
     mstate av;
 
@@ -859,7 +862,6 @@ void* ablib_malloc(pid_t pid, size_t bytes, label_t L)
     __MALLOC_LOCK;
 
     /* If call ablib_malloc with a new label, allocate mstate */
-    av = lookup_mstate_by_label(L);
     if (av == NULL) {
     	av = (mstate)malloc(sizeof(struct malloc_state));
     	memset(av, 0, sizeof(struct malloc_state));
@@ -1230,5 +1232,86 @@ use_unit_top:
 DONE:
     __MALLOC_UNLOCK;
     return retval;
+}
+
+/* ************** ArbiterThread allocator support *********************** */
+/* ----------------------- mstate retrival ----------------------- */
+
+//look up mstate by label, called by ablib_malloc()
+static bool _cmp_mstate(const void *key, const void* data)
+{
+	label_t *label = (label_t *)key;
+	mstate unit_av = (mstate)data;
+	
+	if (memcmp(label, &(unit_av->label), sizeof(label_t)) == 0)
+		return true;
+	return false;
+}
+
+mstate lookup_mstate_by_label(label_t L)
+{
+	return (mstate)linked_list_lookup(&(get_abheap_state()->malloc_state_list),
+					   &L, 
+					   _cmp_mstate);
+}
+
+//locate the unit header using an address 
+static inline struct unit_header *get_unit_header(void *ptr)
+{
+	return (struct unit_header *)((unsigned long)ptr & UNIT_ALIGN_MASK);
+}
+
+//look up mstate by memory address, called by ablib_free()
+mstate lookup_mstate_by_mem(void *ptr)
+{
+	struct unit_header *hdr;
+	
+	hdr = get_unit_header(ptr);
+	return (hdr->unit_av);
+}
+
+/* ----------------------- protection update  ----------------------- */
+
+// update protection for other thread according to label comparision 
+static void prot_update(pid_t pid, void *p, long size, label_t L)
+{
+	//TODO 
+	/* list_for_each thread
+	 * do label check to determine protection
+	 * call absys_mprotect() to set protection
+	 */
+	struct arbiter_thread *abt; 
+	struct linked_list *list; 
+	struct list_node *ptr;
+	struct client_desc *c;
+	uint32_t pid_tmp;
+	label_t L1;
+	own_t O1;
+	int prot;
+	int pv;
+		
+	abt = &(arbiter);
+	list = &(abt->client_list);
+	
+	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
+		c= ptr->data;
+		
+		pid_tmp = c->pid;
+		if (pid_tmp == pid) {
+			continue;
+		}
+		*(uint64_t *)L1 = c->label;
+		*(uint64_t *)O1 = c->ownership;
+		
+		pv = (int) check_mem_prot(L1, O1, L);
+		switch(pv) {
+			case PROT_N: pv = PROT_NONE; break;		
+			case PROT_R: pv = PROT_READ; break;		
+			case PROT_RW: pv = PROT_READ | PROT_WRITE; break;
+			default: pv = PROT_NONE;
+		}
+		//set protection on page table
+		absys_mprotect(pid_tmp, p, size, prot);
+	}
 }
 

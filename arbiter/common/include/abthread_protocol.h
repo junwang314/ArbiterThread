@@ -38,15 +38,14 @@ struct abt_reply_header {
 //AbThread API requests
 struct abreq_fork{
 	struct rpc_header hdr;
-	pid_t pid;
-	label_t label;
-	capset ownership;
+	uint64_t label;
+	uint64_t ownership;
 };
 
 struct abreq_malloc {
 	struct rpc_header hdr;
 	uint32_t size;
-	uint32_t label;
+	uint64_t label;
 };
 
 struct abreq_free {
@@ -54,6 +53,10 @@ struct abreq_free {
 	uint32_t addr;	
 };
 
+struct abreq_create_category {
+	struct rpc_header hdr;
+	uint64_t label;
+};
 
 
 
