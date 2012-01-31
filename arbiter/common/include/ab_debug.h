@@ -11,8 +11,12 @@
 
 #define AB_MSG(...)  if((AB_VERBOSE_TAG)) {printf(__VA_ARGS__);}
 #define AB_INFO(...) if((AB_INFO_TAG)) {printf(__VA_ARGS__);}
-#define AB_DBG(...)  if((AB_DEBUG_TAG)) {printf(__VA_ARGS__);}
 
+#if AB_DEBUG_TAG
+#define AB_DBG(...)  if((AB_DEBUG_TAG)) {printf(__VA_ARGS__);}
+#else
+#define AB_DBG(...)
+#endif
 
 
 #endif //_AB_DEBUG_H

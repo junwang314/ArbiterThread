@@ -1,10 +1,11 @@
 #ifndef _AB_API_H
 #define _AB_API_H
 
-#include <stdint.h>
+#include <stdint.h> /* uint8_t */
+#include <unistd.h> /* pid_t */
 
-#define CAT_S	0b00000000
-#define CAT_I	0b10000000	// use most significant bit as flag
+#define CAT_S	((uint8_t)0b00000000)
+#define CAT_I	((uint8_t)0b10000000)	// use most significant bit as flag
 
 typedef uint8_t cat_t;		// category type (e.g. Pr, Pw, ...)
 typedef uint8_t cat_type;	// type of category: CAT_S-secrecy, CAT_I-integrity

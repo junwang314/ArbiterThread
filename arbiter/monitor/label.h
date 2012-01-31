@@ -19,6 +19,6 @@ int check_label(label_t L1, own_t O1, label_t L2, own_t O2);
 /* check label according to RULE #1:
  * return one of the three mem_prot result
  */
-int check_mem_prot(label_t L1, own_t O1, label_t L2);
+enum mem_prot check_mem_prot(label_t L1, own_t O1, label_t L2);
 
 #endif //_LABEL_H

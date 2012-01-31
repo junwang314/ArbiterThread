@@ -408,6 +408,8 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 	    mm = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
 
 	    if (mm != (char*)(MORECORE_FAILURE)) {
+		//touch the memory
+		touch_mem(mm, size);
 
 		/*
 		   The offset to the start of the mmapped region is stored
@@ -443,9 +445,6 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		    av->max_total_mem = sum;
 
 		check_chunk(p);
-
-		//touch the memory
-		touch_mem(p, size);
 		
 		//update protection for other threads
 		prot_update(pid, p, size, L);
@@ -534,6 +533,8 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 	    fst_brk = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
 
 	    if (fst_brk != (char*)(MORECORE_FAILURE)) {
+		//touch the memory
+		touch_mem(fst_brk, size);
 
 		/* We do not need, and cannot use, another sbrk call to find end */
 		snd_brk = fst_brk + size;
@@ -549,6 +550,9 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     }
 
     if (fst_brk != (char*)(MORECORE_FAILURE)) {
+	//touch the memory
+	touch_mem(fst_brk, size);
+	
 	av->sbrked_mem += size;
 
 	/*
@@ -755,9 +759,6 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		check_malloced_chunk(p, nb);
 
 		//TODO add remainder to topbin
-
-		//touch the memory
-		touch_mem(p, size);
 		
 		//update protection for other threads
 		prot_update(pid, p, size, L);

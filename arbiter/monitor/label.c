@@ -1,13 +1,25 @@
 #include <stdlib.h> /* rand(), srand() */
+
+#include <ab_debug.h>
 #include "label.h"
 
 static inline cat_t get_cat_type(cat_t cat)
 {
-	return (cat && 0b10000000);
+	return (cat & 0b10000000);
 }
 
-#define SET_FLAG(flag)		(flag = 1)
+#define SET_FLAG(flag)		(flag = 1)	//used in check_label()
 #define CLEAR_FLAG(flag)	(flag = 0)
+
+cat_t create_category(cat_type t)
+{
+	static cat_t cat_gen = 0;
+	if (++cat_gen >= 0b10000000) {
+		AB_MSG("ERROR: category used up\n");	
+		return -1;
+	}
+	return (cat_t) (t | (cat_gen & 0b01111111));
+}
 
 int check_label(label_t L1, own_t O1, label_t L2, own_t O2)
 {
