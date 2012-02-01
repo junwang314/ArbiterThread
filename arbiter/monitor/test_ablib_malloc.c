@@ -9,6 +9,7 @@
 #include <ab_api.h>
 #include <ab_os_interface.h>
 #include "ablib_malloc.h" /* ablib_malloc() */
+#include "label.h" /* label */
 
 //number of child thread
 #define NUM_THREADS 1
@@ -115,6 +116,9 @@ int main()
 	unsigned long addr, len;
 	unsigned long addr_to_map, addr_to_brk;
 	void *ret[NUM_THREADS];
+	cat_t ar = create_category(CAT_S);
+        cat_t aw = create_category(CAT_I);       
+        label_t L = {ar, aw};
 
 	if (absys_thread_control(AB_SET_ME_ARBITER)) {
 		printf("set arbiter failed! %d\n", 
@@ -140,27 +144,25 @@ int main()
 
 	// test code for ablib_brk()
 	printf("chile pid = %d\n", pid[0]);
+
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 
 	mmap((void *) addr, 10*1024*4, PROT_READ|PROT_WRITE, 
 		MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
-	touch_mem((void *)addr,10*1024*4);
+	touch_mem((void *)addr, 10*1024*4);
 	
-	addr = (unsigned long)ablib_sbrk(pid[0], 10*1024*4);
+	addr = (unsigned long)ablib_malloc(pid[0], 1024, L);
 	printf("%lx\n", addr);
-
-	//memset((void *)addr, 1, 9*1024*4);
-	*(unsigned long *)addr = 0xdeadbeef;
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 	
-	addr = (unsigned long)ablib_sbrk(pid[0], 10*1024*4);
-	printf("%lx\n", addr);
+//	addr = (unsigned long)ablib_malloc(pid[0], 1024*1024*4, L);
+//	printf("%lx\n", addr);
 
-	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("%lx\n", addr);
+//	addr = (unsigned long)ablib_sbrk(pid[0], 0);
+//	printf("%lx\n", addr);
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);

@@ -23,7 +23,7 @@
 #define __set_errno(val) ((errno) = (val))
 
 #include <errno.h>
-#include <string.h>
+#include <string.h> /* memset() */
 #include <malloc.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -31,6 +31,7 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <assert.h> /* assert() */
 
 #include <ab_api.h>
 #include <ab_os_interface.h>
@@ -984,7 +985,7 @@ void attribute_hidden __malloc_consolidate(mstate);
 #define check_remalloced_chunk(P,N)
 #define check_malloced_chunk(P,N)
 #define check_malloc_state()
-#define assert(x) ((void)0)
+//#define assert(x) ((void)0)
 
 
 #else
@@ -1039,11 +1040,11 @@ extern void __do_check_malloc_state(void);
            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 */
-#define PAGE_PER_UNIT 	10 //10 page (4MB) per unit
+#define PAGE_PER_UNIT 	10 //10 page (40KB) per unit
 #define UNIT_ALIGNMENT	(PAGE_PER_UNIT*malloc_getpagesize)
 #define UNIT_ALIGN_MASK	(~(UNIT_ALIGNMENT - 1))
 
-#define UNIT_SIZE UNIT_ALIGNMENT	//alias for (4MB) unit size
+#define UNIT_SIZE UNIT_ALIGNMENT	//alias for (40kB) unit size
 
 struct unit_header {
 	mstate unit_av;
@@ -1073,6 +1074,9 @@ mstate lookup_mstate_by_label(label_t L);
 //look up mstate by memory address, called by ablib_free()
 mstate lookup_mstate_by_mem(void *ptr);
 
+//locate the unit header using an address 
+struct unit_header *get_unit_header(void *ptr);
+
 /* ----------------------- Syscall support  ----------------------- */
 
 #ifndef AB_MORECORE
@@ -1090,8 +1094,12 @@ void ablib_free(pid_t pid, void* mem);
 
 void *ablib_sbrk (pid_t pid, int increment);
 
+#define __TEST_MALLOC_ONLY_
+#ifndef __TEST_MALLOC_ONLY_
 static void prot_update(pid_t pid, void *p, long size, label_t L);
-
+#else
+#define prot_update(pid, p, size, L)
+#endif
 /* ------------------------------- Misc  ---------------------------- */
 
 //touch the allocated memory so that physical pages are mapped to arbiter

@@ -16,7 +16,7 @@
 
 #include "ablib_malloc.h"
 
-
+#if 0
 /* ------------------------- __malloc_trim -------------------------
    __malloc_trim is an inverse of sorts to __malloc_alloc.  It gives memory
    back to the system (via negative arguments to sbrk) if there is unused
@@ -108,7 +108,7 @@ int malloc_trim(size_t pad)
   __malloc_consolidate(av);
   return __malloc_trim(pad, av);
 }
-
+#endif
 /*
   Initialize a malloc_state struct.
 
@@ -229,7 +229,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 			unlink(p, bck, fwd);
 		    }
 
-		    if (nextchunk != av->top) {
+		    if (nextchunk != get_unit_header(p)->unit_top) {
 			nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
 			set_head(nextchunk, nextsize);
 
@@ -251,7 +251,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 		    else {
 			size += nextsize;
 			set_head(p, size | PREV_INUSE);
-			av->top = p;
+			get_unit_header(p)->unit_top = p;
 		    }
 
 		} while ( (p = nextp) != 0);

@@ -19,9 +19,6 @@ extern int __libc_multiple_libcs attribute_hidden;
 void * __ablib_sbrk (pid_t pid, intptr_t increment)
 {
 	void *oldbrk;
-
-	//make sure increment is UNIT_SIZE
-	assert(increment == UNIT_SIZE);
   
 	/* If this is not part of the dynamic library or the library is used
 	via dynamic loading in a statically linked program update
@@ -31,11 +28,14 @@ void * __ablib_sbrk (pid_t pid, intptr_t increment)
 	if (__ab_curbrk == NULL) {
 		if (__ablib_brk (pid, 0) < 0)          /* Initialize the break.  */
 			return (void *) -1;
-		assert(__ablib_brk(pid, 0) == 0x8000000);
+		assert((unsigned int)__ab_curbrk == 0x80000000);
 	}
 
 	if (increment == 0)
 		return __ab_curbrk;
+
+	//make sure increment is UNIT_SIZE
+	assert(increment == UNIT_SIZE);
 
 	oldbrk = __ab_curbrk;
 	if ((increment > 0

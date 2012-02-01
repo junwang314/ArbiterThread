@@ -506,7 +506,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
        */
 
     if (size > 0)
-	fst_brk = (char*)(AB_MORECORE(size));
+	fst_brk = (char*)(AB_MORECORE(pid, size));
 
     /*
        If have mmap, try using it as a backup when MORECORE fails or
@@ -550,9 +550,10 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     }
 
     if (fst_brk != (char*)(MORECORE_FAILURE)) {
+	//AB_DBG("before touch mem\n");	
 	//touch the memory
-	touch_mem(fst_brk, size);
-	
+	//touch_mem(fst_brk, size/2);
+	//AB_DBG("after touch mem\n");
 	av->sbrked_mem += size;
 
 	/*
@@ -665,7 +666,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 //		    correction = 0;
 //		    set_noncontiguous(av);
 //		}
-	        snd_brk = (char*)(AB_MORECORE(0));
+	        snd_brk = (char*)(AB_MORECORE(pid, 0));
 
 	    }
 
@@ -676,7 +677,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 
 		/* Find out current end of memory */
 		if (snd_brk == (char*)(MORECORE_FAILURE)) {
-		    snd_brk = (char*)(AB_MORECORE(0));
+		    snd_brk = (char*)(AB_MORECORE(pid, 0));
 		    av->sbrked_mem += snd_brk - fst_brk - size;  // TODO what does this mean?
 		}
 	    }
@@ -884,7 +885,7 @@ void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
        */
     if (!have_anychunks(av)) {
 	if (av->max_fast == 0) /* initialization check */
-	    __malloc_consolidate(av);
+	    __malloc_consolidate(av);  //initialization purpose
 	goto use_unit_top;
     }
 
@@ -1227,6 +1228,7 @@ use_unit_top:
 	}
     }
 
+    AB_DBG("before call __malloc_alloc\n");
     /* If no space in top, relay to handle system-dependent cases */
     sysmem = __malloc_alloc(pid, nb, av, L);
     retval = sysmem;
@@ -1257,7 +1259,7 @@ mstate lookup_mstate_by_label(label_t L)
 }
 
 //locate the unit header using an address 
-static inline struct unit_header *get_unit_header(void *ptr)
+struct unit_header *get_unit_header(void *ptr)
 {
 	return (struct unit_header *)((unsigned long)ptr & UNIT_ALIGN_MASK);
 }
@@ -1272,7 +1274,7 @@ mstate lookup_mstate_by_mem(void *ptr)
 }
 
 /* ----------------------- protection update  ----------------------- */
-
+#ifndef __TEST_MALLOC_ONLY_
 // update protection for other thread according to label comparision 
 static void prot_update(pid_t pid, void *p, long size, label_t L)
 {
@@ -1315,4 +1317,4 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 		absys_mprotect(pid_tmp, p, size, prot);
 	}
 }
-
+#endif
