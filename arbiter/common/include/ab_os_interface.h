@@ -53,7 +53,7 @@ static inline int absys_thread_control(int ab_thread_control_flag)
 static inline unsigned long absys_brk(pid_t pid, void *addr)
 {
 	unsigned long ab_brk = (unsigned long)addr;
-	printf("ab_brk = %lx\n", ab_brk);
+	//printf("ab_brk = %lx\n", ab_brk);
 	return syscall(__NR_absys_brk, pid, ab_brk);
 	//return (syscall(__NR_absys_brk, pid, brk) == brk) ? 0 : -1;
 }

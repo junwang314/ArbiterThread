@@ -268,7 +268,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
     }
 }
 
-
+#if 0
 /* ------------------------------ free ------------------------------ */
 void ablib_free(pid_t pid, void* mem)
 {
@@ -414,4 +414,4 @@ void ablib_free(pid_t pid, void* mem)
     }
     __MALLOC_UNLOCK;
 }
-
+#endif

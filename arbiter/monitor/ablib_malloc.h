@@ -1088,6 +1088,8 @@ void *ablib_malloc(pid_t pid, size_t bytes, label_t L);
 
 void ablib_free(pid_t pid, void* mem);
 
+void *ablib_sbrk (pid_t pid, int increment);
+
 static void prot_update(pid_t pid, void *p, long size, label_t L);
 
 /* ------------------------------- Misc  ---------------------------- */
