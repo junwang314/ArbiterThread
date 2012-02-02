@@ -367,6 +367,9 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     unsigned long    sum;            /* for updating stats */
 
     size_t          pagemask  = av->pagesize - 1;
+    
+    mchunkptr       fwd;              /* misc temp for linking */
+    mchunkptr       bck;              /* misc temp for linking */
 
     /*
        If there is space available in fastbins, consolidate and retry
@@ -690,7 +693,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 
 		unit_top = (mchunkptr)aligned_brk;
 		set_head(unit_top, size | PREV_INUSE);
-		
+
 		//TODO add unit header
 
 		/*
@@ -755,11 +758,38 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		remainder_size = size - nb;
 		remainder = chunk_at_offset(p, nb);
 		unit_top = remainder;
+
+
+		/* place remainder back to the topbin */		
+		bck = unit_tops(av);
+		fwd = bck->fd;
+
+		if (fwd != bck) {
+		/* if smaller than smallest, place first */
+			if ((unsigned long)(size) < 
+				(unsigned long)(bck->bk->size)) {
+				fwd = bck;
+				bck = bck->bk;
+			}
+			else if ((unsigned long)(size) >=
+				(unsigned long)(MINSIZE)) {
+
+			    /* maintain topbin in sorted order */
+				size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
+				while ((unsigned long)(size) < (unsigned long)(fwd->size))
+					fwd = fwd->fd;
+			        bck = fwd->bk;
+			}
+		}
+		remainder->bk = bck;
+		remainder->fd = fwd;
+		fwd->bk = remainder;
+		bck->fd = remainder;
+
 		set_head(p, nb | PREV_INUSE);
 		set_head(remainder, remainder_size | PREV_INUSE);
+		set_foot(remainder, remainder_size);
 		check_malloced_chunk(p, nb);
-
-		//TODO add remainder to topbin
 		
 		//update protection for other threads
 		prot_update(pid, p, size, L);
@@ -884,8 +914,10 @@ void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
        Bypass search if no frees yet
        */
     if (!have_anychunks(av)) {
-	if (av->max_fast == 0) /* initialization check */
+	if (av->max_fast == 0) {/* initialization check */
 	    __malloc_consolidate(av);  //initialization purpose
+	    memcpy(av->label, L, sizeof(label_t));
+	}
 	goto use_unit_top;
     }
 
@@ -1191,7 +1223,7 @@ use_unit_top:
 		else {
 			remainder = chunk_at_offset(victim, nb);
 			/* place remainder back to the topbin */		
-			bck = unit_tops(av)->bk;
+			bck = unit_tops(av);
 			fwd = bck->fd;
 
 			if (fwd != bck) {
@@ -1204,11 +1236,11 @@ use_unit_top:
 				else if ((unsigned long)(size) >=
 					(unsigned long)(MINSIZE)) {
 
-				    /* maintain topbin in sorted order */
-				    size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
-				    while ((unsigned long)(size) < (unsigned long)(fwd->size))
-					fwd = fwd->fd;
-				    bck = fwd->bk;
+					/* maintain topbin in sorted order */
+					size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
+					while ((unsigned long)(size) < (unsigned long)(fwd->size))
+						fwd = fwd->fd;
+					bck = fwd->bk;
 				}
 			}
 
@@ -1243,18 +1275,20 @@ DONE:
 //look up mstate by label, called by ablib_malloc()
 static bool _cmp_mstate(const void *key, const void* data)
 {
-	label_t *label = (label_t *)key;
 	mstate unit_av = (mstate)data;
 	
-	if (memcmp(label, &(unit_av->label), sizeof(label_t)) == 0)
+	if (memcmp(key, &(unit_av->label), sizeof(label_t)) == 0) {
+		//AB_DBG("cmp return ture\n");
 		return true;
+	}
+	//AB_DBG("cmp return false\n");
 	return false;
 }
 
 mstate lookup_mstate_by_label(label_t L)
 {
 	return (mstate)linked_list_lookup(&(get_abheap_state()->malloc_state_list),
-					   &L, 
+					   L, 
 					   _cmp_mstate);
 }
 

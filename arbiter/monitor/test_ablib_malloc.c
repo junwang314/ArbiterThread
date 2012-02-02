@@ -158,11 +158,11 @@ int main()
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 	
-//	addr = (unsigned long)ablib_malloc(pid[0], 1024*1024*4, L);
-//	printf("%lx\n", addr);
+	addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L);
+	printf("%lx\n", addr);
 
-//	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-//	printf("%lx\n", addr);
+	addr = (unsigned long)ablib_sbrk(pid[0], 0);
+	printf("%lx\n", addr);
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);
