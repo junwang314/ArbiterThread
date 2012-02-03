@@ -32,7 +32,9 @@ static void child_func(unsigned long addr, int i)
 	}
 	
 	//wait parent 
-	sleep(5);
+	sleep(10);
+	*(unsigned long *)addr = 0xdeadbeef;
+	printf("%x\n", *(unsigned long *)addr);
 /*	
 	//thread 0 initialize data
 	if (i == 0) {
@@ -119,6 +121,8 @@ int main()
 	cat_t ar = create_category(CAT_S);
         cat_t aw = create_category(CAT_I);       
         label_t L = {ar, aw};
+        
+        addr_to_map = 0x80000000;
 
 	if (absys_thread_control(AB_SET_ME_ARBITER)) {
 		printf("set arbiter failed! %d\n", 
@@ -148,20 +152,20 @@ int main()
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 
-	mmap((void *) addr, 10*1024*4, PROT_READ|PROT_WRITE, 
+	mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
 		MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
 	touch_mem((void *)addr, 10*1024*4);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 1024, L);
+	addr = (unsigned long)ablib_malloc(pid[0], 7*1024*4, L);
 	printf("%lx\n", addr);
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 10*1024*4, L);
+	addr = (unsigned long)ablib_malloc(pid[0], 8*1024*4, L);
 	printf("%lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 10*1024*4, L);
+	addr = (unsigned long)ablib_malloc(pid[0], 9*1024*4, L);
 	printf("%lx\n", addr);
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
