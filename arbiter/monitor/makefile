@@ -78,5 +78,5 @@ $(BUILD)/test:$(ABTEST_OBJS)
 run:$(BUILD)/arbiter
 	$^
 
-test:$(BUILD)/test
+run-test:$(BUILD)/test
 	$^
