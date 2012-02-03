@@ -158,7 +158,10 @@ int main()
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 	printf("%lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L);
+	addr = (unsigned long)ablib_malloc(pid[0], 10*1024*4, L);
+	printf("%lx\n", addr);
+	
+	addr = (unsigned long)ablib_malloc(pid[0], 10*1024*4, L);
 	printf("%lx\n", addr);
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);

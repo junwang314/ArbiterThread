@@ -335,7 +335,7 @@ extern pthread_mutex_t __malloc_lock;
 #define M_MMAP_THRESHOLD      -3
 
 #ifndef DEFAULT_MMAP_THRESHOLD
-#define DEFAULT_MMAP_THRESHOLD (256 * 1024)
+#define DEFAULT_MMAP_THRESHOLD (UNIT_SIZE)
 #endif
 
 /*
@@ -1084,7 +1084,7 @@ struct unit_header *get_unit_header(void *ptr);
 #endif
 
 #define AB_MMAP(pid, addr, size, prot) \
- (absys_mmap((pid), (addr), (size), (prot), MAP_PRIVATE|MAP_ANONYMOUS, 0, 0))
+ (absys_mmap((pid), (addr), (size), (prot), MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, 0, 0))
 
 
 /* ------------------------- ablib declaration  --------------------- */

@@ -403,57 +403,69 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 	   is one (sizeof(size_t)) unit larger than for normal chunks, because there
 	   is no following chunk whose prev_size field could be used.
 	   */
-	size = (nb + (sizeof(size_t)) + MALLOC_ALIGN_MASK + pagemask) & ~pagemask;
+	size = (nb + (sizeof(size_t)) + UNIT_ALIGNMENT + pagemask) & ~pagemask;
+	AB_DBG("UNIT_ALIGNMENT = %ld, size  = %ld\n", UNIT_ALIGNMENT, size);
 
 	/* Don't try if size wraps around 0 */
 	if ((unsigned long)(size) > (unsigned long)(nb)) {
-
-	    mm = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
-
-	    if (mm != (char*)(MORECORE_FAILURE)) {
 		//touch the memory
+		mm = (char *)mmap(0, size, PROT_READ|PROT_WRITE, 
+			MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+		assert(mm != (char *)(-1));
 		touch_mem(mm, size);
 
-		/*
-		   The offset to the start of the mmapped region is stored
-		   in the prev_size field of the chunk. This allows us to adjust
-		   returned start address to meet alignment requirements here
-		   and in memalign(), and still be able to compute proper
-		   address argument for later munmap in free() and realloc().
-		   */
+		if (mm != (char *)(-1)) {
+			/*
+			   The offset to the start of the mmapped region is stored
+			   in the prev_size field of the chunk. This allows us to adjust
+			   returned start address to meet alignment requirements here
+			   and in memalign(), and still be able to compute proper
+			   address argument for later munmap in free() and realloc().
+			   */
 
-		front_misalign = (size_t)chunk2mem(mm) & MALLOC_ALIGN_MASK;
-		if (front_misalign > 0) {
-		    correction = MALLOC_ALIGNMENT - front_misalign;
-		    p = (mchunkptr)(mm + correction);
-		    p->prev_size = correction;
-		    set_head(p, (size - correction) |IS_MMAPPED);
-		}
-		else {
-		    p = (mchunkptr)mm;
-		    p->prev_size = 0;
-		    set_head(p, size|IS_MMAPPED);
-		}
+			front_misalign = (size_t)chunk2mem(mm) & UNIT_ALIGNMENT;
+			if (front_misalign > 0) {
+				correction = UNIT_ALIGNMENT - front_misalign;
+				munmap(mm, correction);
+				p = (mchunkptr)(mm + correction);
+				p->prev_size = correction;
+				set_head(p, (size - correction) |IS_MMAPPED);
+			}
+			else {
+				p = (mchunkptr)mm;
+				p->prev_size = 0;
+				set_head(p, size|IS_MMAPPED);
+			}
+				
+			AB_DBG("before call AB_MMAP\n");
+			mm = (char*)(AB_MMAP(pid, (void *)p, (size - correction), PROT_READ|PROT_WRITE));
+			AB_DBG("after call AB_MMAP\n");
+			assert(mm == (char *)p);
 
-		/* update statistics */
+			if (mm != (char *)MORECORE_FAILURE) {
+				/* update statistics */
 
-		if (++av->n_mmaps > av->max_n_mmaps)
-		    av->max_n_mmaps = av->n_mmaps;
+				if (++av->n_mmaps > av->max_n_mmaps)
+					av->max_n_mmaps = av->n_mmaps;
 
-		sum = av->mmapped_mem += size;
-		if (sum > (unsigned long)(av->max_mmapped_mem))
-		    av->max_mmapped_mem = sum;
-		sum += av->sbrked_mem;
-		if (sum > (unsigned long)(av->max_total_mem))
-		    av->max_total_mem = sum;
+				sum = av->mmapped_mem += size;
+				if (sum > (unsigned long)(av->max_mmapped_mem))
+					av->max_mmapped_mem = sum;
+				sum += av->sbrked_mem;
+				if (sum > (unsigned long)(av->max_total_mem))
+					av->max_total_mem = sum;
 
-		check_chunk(p);
+				check_chunk(p);
 		
-		//update protection for other threads
-		prot_update(pid, p, size, L);
+				//update protection for other threads
+				prot_update(pid, p, size, L);
 
-		return chunk2mem(p);
-	    }
+				return chunk2mem(p);
+			}
+			else {
+				munmap(mm, size);
+			}
+		}
 	}
     }
 
@@ -1208,8 +1220,8 @@ use_unit_top:
        reason for ensuring it exists is that we may need MINSIZE space
        to put in fenceposts in sysmalloc.)
        */
-       
-    while ( (victim = unit_tops(av)->bk) != unit_tops(av) ) {
+    victim = unit_tops(av);   
+    while ( (victim = victim->bk) != unit_tops(av) ) {
 	size = chunksize(victim);
 	if ((unsigned long)(size) >= (unsigned long)(nb)) {
 		remainder_size = size - nb;
