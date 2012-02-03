@@ -12,7 +12,7 @@
 #include "label.h" /* label */
 
 //number of child thread
-#define NUM_THREADS 1
+#define NUM_THREADS 2
 
 static void suicide()
 {
@@ -33,8 +33,6 @@ static void child_func(unsigned long addr, int i)
 	
 	//wait parent 
 	sleep(10);
-	*(unsigned long *)addr = 0xdeadbeef;
-	printf("%x\n", *(unsigned long *)addr);
 /*	
 	//thread 0 initialize data
 	if (i == 0) {
@@ -120,7 +118,8 @@ int main()
 	void *ret[NUM_THREADS];
 	cat_t ar = create_category(CAT_S);
         cat_t aw = create_category(CAT_I);       
-        label_t L = {ar, aw};
+        label_t L1 = {ar, aw};
+        label_t L2 = {ar};
         
         addr_to_map = 0x80000000;
 
@@ -150,26 +149,32 @@ int main()
 	printf("chile pid = %d\n", pid[0]);
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("%lx\n", addr);
+	printf("child 0 sbrk: %lx\n", addr);
 
 	mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
 		MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
 	touch_mem((void *)addr, 10*1024*4);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 7*1024*4, L);
-	printf("%lx\n", addr);
+	addr = (unsigned long)ablib_malloc(pid[0], 7*1024*4, L1);
+	printf("child 0 malloc: %lx\n", addr);
+	absys_mprotect(pid[0], (addr - 8), 10*1024*4, PROT_READ|PROT_WRITE);
+	absys_mprotect(pid[1], (addr - 8), 10*1024*4, PROT_READ);
+	
+	addr = (unsigned long)ablib_sbrk(pid[0], 0);
+	printf("child 0 sbrk: %lx\n", addr);
+	
+	addr = (unsigned long)ablib_malloc(pid[1], 8*1024*4, L2);
+	printf("child 1 malloc: %lx\n", addr);
+	
+	addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
+	printf("child 0 malloc: %lx\n", addr);
 
 	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("%lx\n", addr);
+	printf("child 0 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 8*1024*4, L);
-	printf("%lx\n", addr);
+	addr = (unsigned long)ablib_sbrk(pid[1], 0);
+	printf("child 1 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 9*1024*4, L);
-	printf("%lx\n", addr);
-
-	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("%lx\n", addr);
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);
