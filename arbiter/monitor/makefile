@@ -46,7 +46,7 @@ ABTEST_OBJS=\
 ####varibles to fit in the make.in template
 
 TARGETS=\
-	arbiter
+	arbiter test
 
 DEP_SRCS=\
 	$(ARBITER_SRCS)
