@@ -274,7 +274,7 @@ void init_first_child(pid)
 
 	//fill out client_desc for the new thread...
 	snprintf(c_new->client_addr.unix_addr, 108, "/tmp/abt_client_%d", pid);
-	c_new->client_addr.addr_len = sizeof(c_new->client_addr.unix_addr);
+	c_new->client_addr.addr_len = strlen(c_new->client_addr.unix_addr);
 	
 	c_new->pid = pid;
 		
