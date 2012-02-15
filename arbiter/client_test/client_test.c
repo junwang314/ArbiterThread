@@ -5,11 +5,16 @@
 
 #include <lib_client.h>
 
-int main()
+int old_main()
 {
 	init_client_state();
 	for (;;) {
 		ab_free((void *)0xdeadbeef);
 		sleep(1);
 	}
+}
+
+void client_test()
+{
+
 }

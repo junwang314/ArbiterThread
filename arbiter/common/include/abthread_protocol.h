@@ -11,6 +11,7 @@ enum abt_opcode {
 	ABT_FORK,
 	ABT_MALLOC,
 	ABT_FREE,
+	ABT_CREATE_CAT
 	//more to add...
 };
 
@@ -23,7 +24,7 @@ struct rpc_header {
 };
 
 //maximum data length, including the header
-#define RPC_DATA_LEN               128
+#define RPC_DATA_LEN               256
 
 struct abt_reply_header {
 	uint32_t abt_reply_magic;
@@ -36,6 +37,11 @@ struct abt_reply_header {
 #define MONITOR_SOCKET "/tmp/abt_monitor_socket"
 
 //AbThread API requests
+struct abreq_create_cat {
+	struct rpc_header hdr;
+	uint8_t cat_type;
+};
+
 struct abreq_fork{
 	struct rpc_header hdr;
 	uint64_t label;

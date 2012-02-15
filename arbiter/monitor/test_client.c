@@ -8,11 +8,14 @@
 
 #include <ab_api.h>
 #include <ab_os_interface.h>
+#include <ab_debug.h>
+#include <lib_client.h>
+
 #include "ablib_malloc.h" /* ablib_malloc() */
 #include "label.h" /* label */
 
 //number of child thread
-#define NUM_THREADS 2
+#define NUM_THREADS 0
 
 static void suicide()
 {
@@ -25,11 +28,6 @@ static void child_func(unsigned long addr, int i)
 {
 	void *ret;
 	int buf;
-	if (absys_thread_control(AB_SET_ME_SPECIAL)) {
-		printf("[PID %lu] set special thread failed.\n", 
-		       (unsigned long)getpid());
-		suicide();
-	}
 	
 	//wait parent 
 	sleep(10);
@@ -105,9 +103,7 @@ static void child_func(unsigned long addr, int i)
 
 	sleep(1000);
 }
-
-
-int main()
+int client_test()
 {
 	int i, status;
 	int count = 0;
@@ -120,17 +116,10 @@ int main()
         cat_t aw = create_category(CAT_I);       
         label_t L1 = {ar, aw};
         label_t L2 = {ar};
-        
-        addr_to_map = 0x80000000;
 
-	if (absys_thread_control(AB_SET_ME_ARBITER)) {
-		printf("set arbiter failed! %d\n", 
-			absys_thread_control(AB_SET_ME_ARBITER));
-		goto test_failed;
-	}
-	
+/*        addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
-		pid[i] = fork();
+		pid[i] = ab_fork({},{});
 		if (pid[i] < 0) {
 			perror("thread cannot be created.\n");
 			exit(0);
@@ -144,36 +133,36 @@ int main()
 	}
 	//wait some time for all the child to start
 	sleep(5);
-
+*/
 	// test code for ablib_brk()
-	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("child 0 sbrk: %lx\n", addr);
+//	addr = (unsigned long)ablib_sbrk(pid[0], 0);
+//	printf("child 0 sbrk: %lx\n", addr);
 
-	mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
-		MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
-	touch_mem((void *)addr, 10*1024*4);
+	//mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
+	//	MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
+	//touch_mem((void *)addr, 10*1024*4);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 7*1024*4, L1);
-	printf("child 0 malloc: %lx\n", addr);
-	absys_mprotect(pid[1], (addr - 8), 10*1024*4, PROT_READ);
+//	addr = (unsigned long)ab_malloc(7*1024*4, L1);
+//	printf("child 0 malloc: %lx\n", addr);
+	//absys_mprotect(pid[1], (addr - 8), 10*1024*4, PROT_READ);
 	
-	addr = (unsigned long)ablib_malloc(pid[1], 8*1024*4, L2);
-	printf("child 1 malloc: %lx\n", addr);
+//	addr = (unsigned long)ab_malloc(8*1024*4, L2);
+//	printf("child 0 malloc: %lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
-	printf("child 0 malloc: %lx\n", addr);
+	//addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
+	//printf("child 0 malloc: %lx\n", addr);
 	
-	addr = (unsigned long)ablib_malloc(pid[0], 9*1024*4, L1);
-	printf("child 0 malloc: %lx\n", addr);
+	//addr = (unsigned long)ablib_malloc(pid[0], 9*1024*4, L1);
+	//printf("child 0 malloc: %lx\n", addr);
 
-	addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	printf("child 0 sbrk: %lx\n", addr);
+	//addr = (unsigned long)ablib_sbrk(pid[0], 0);
+	//printf("child 0 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ablib_sbrk(pid[1], 0);
-	printf("child 1 sbrk: %lx\n", addr);
+	//addr = (unsigned long)ablib_sbrk(pid[1], 0);
+	//printf("child 1 sbrk: %lx\n", addr);
 	
 
-	while(1) {
+/*	while(1) {
 		wpid = waitpid(-1, &status, 0);
 		if(wpid <= 0)
 			break;
@@ -190,7 +179,7 @@ int main()
 		else
 			printf("wait pid returns with status %d\n", status);
 	}
-	
+*/	
 	
 	if (normal == NUM_THREADS) {
 		printf("mapping test successful.\n");
@@ -200,5 +189,5 @@ int main()
 
 test_failed:
 	printf("test failed!!\n");
-	return -1;			  
+	return -1;			
 }

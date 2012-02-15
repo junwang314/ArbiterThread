@@ -614,6 +614,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 	       */
 	    if (contiguous(av) && old_max_top_size != 0 && fst_brk < old_ab_end) {
 		set_noncontiguous(av);
+		assert(0);
 	    } // this situation should rarely happen in our system
 
 	    /* handle contiguous cases */
@@ -1272,7 +1273,7 @@ use_unit_top:
 	}
     }
 
-    AB_DBG("before call __malloc_alloc\n");
+    //AB_DBG("before call __malloc_alloc\n");
     /* If no space in top, relay to handle system-dependent cases */
     sysmem = __malloc_alloc(pid, nb, av, L);
     retval = sysmem;
@@ -1324,7 +1325,6 @@ mstate lookup_mstate_by_mem(void *ptr)
 // update protection for other thread according to label comparision 
 static void prot_update(pid_t pid, void *p, long size, label_t L)
 {
-	//TODO 
 	/* list_for_each thread
 	 * do label check to determine protection
 	 * call absys_mprotect() to set protection

@@ -10,6 +10,12 @@ enum mem_prot {
 	PROT_RW
 };
 
+//create a new category
+cat_t create_cat(cat_type t);
+
+//add new created category to the ownership of calling process
+cat_t add_onwership(own_t O, cat_t cat);
+
 /* check label according to RULE #2-3:
  * - if creating an object capset O2 can be NULL  
  * - return 0 if label check OK (pass), -1 if fail

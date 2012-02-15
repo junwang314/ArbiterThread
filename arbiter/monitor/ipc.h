@@ -12,7 +12,7 @@ struct abt_request {
 	uint32_t pkt_sn;
 	//may be -1 for failure
 	int32_t pkt_size;
-	struct rpc_header *rheader;
+	struct rpc_header *rheader;	//TODO: check w/ Xi: never used
 	char data[RPC_DATA_LEN];	
 
 	//more to add: client information...

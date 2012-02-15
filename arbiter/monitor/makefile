@@ -29,7 +29,10 @@ ABTEST_SRCS=\
 	ablib_brk.c \
 	ablib_sbrk.c \
 	test_ablib_malloc.c \
-
+	
+LABELTEST_SRCS=\
+	label.c \
+	test_label.c
 
 LIB_COMMON=$(AB_ROOT)/common/lib/
 
@@ -42,11 +45,13 @@ ARBITER_OBJS=\
 ABTEST_OBJS=\
 	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(ABTEST_SRCS))) $(LIB_COMMON_OBJS)
 
+LABELTEST_OBJS=\
+	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(LABELTEST_SRCS))) $(LIB_COMMON_OBJS)
 
 ####varibles to fit in the make.in template
 
 TARGETS=\
-	arbiter test
+	arbiter test label_test
 
 DEP_SRCS=\
 	$(ARBITER_SRCS)
@@ -75,8 +80,14 @@ $(BUILD)/arbiter:$(ARBITER_OBJS)
 $(BUILD)/test:$(ABTEST_OBJS)
 	$(CC) $^ -o $@
 
+$(BUILD)/label_test:$(LABELTEST_OBJS)
+	$(CC) $^ -o $@
+
 run:$(BUILD)/arbiter
 	$^
 
 run-test:$(BUILD)/test
+	$^
+	
+run-label_test:$(BUILD)/label_test
 	$^

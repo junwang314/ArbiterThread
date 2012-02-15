@@ -26,6 +26,8 @@ void init_client_ipc(struct abrpc_client_state *cli_state)
 
 	snprintf(unix_addr.sun_path, 108, "/tmp/abt_client_%d", 
 		 cli_state->pid);
+	AB_DBG("unit_addr.sun_path: %s\n", unix_addr.sun_path);
+	AB_DBG("len of unix_addr.sun_path: %d\n", sizeof(unix_addr.sun_path));
 
 	cli_state->client_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 	assert(cli_state->client_sock >= 0);
@@ -67,7 +69,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		    sizeof(cli_state->abt_addr));
 	       
 
-
+	AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
 	assert(rc == hdr->msg_len);
 
 	for(;;) {
@@ -113,9 +115,12 @@ void init_client_state(label_t L, own_t O)
 	struct abrpc_client_state *cli_state = get_state();
 
 	cli_state->pid = (int) getpid();
-	cli_state->label = *L;
-	cli_state->ownership = *O;
-
+	if (L != NULL) {
+		memcpy(&cli_state->label, L, sizeof(label_t));
+	}
+	if (O != NULL) {
+		memcpy(&cli_state->ownership, O, sizeof(own_t));
+	}
 	//ipc init
 	init_client_ipc(cli_state);
 	
@@ -210,7 +215,27 @@ void *ab_malloc(size_t size, label_t L)
 /* create a category */
 cat_t create_category(cat_type t)
 {
+	struct abreq_create_cat req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+	cat_t rval;
 
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_CREATE_CAT;
+
+	req.cat_type = (uint8_t) t;
+
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	memcpy(&rval, &rply.return_val, sizeof(cat_t));
+
+	return rval;
 }
 
 /* get label of itself */
@@ -231,13 +256,13 @@ cat_t *get_ownership(void)
 cat_t *get_mem_label(void *ptr)
 {
 	label_t L;
-	return L;
+	return NULL;
 }
 
 /* copy and relabel a memeory object */
 void *ab_memcpy(void *dest, const void *src, size_t n, label_t L)
 {
 	
-	return src;
+	return dest;
 }
 

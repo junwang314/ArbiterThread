@@ -23,7 +23,7 @@ struct abrpc_client_state {
 };
 
 
-void init_client_state();
+void init_client_state(label_t, own_t);
 
 
 

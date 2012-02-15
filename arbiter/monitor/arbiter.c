@@ -15,8 +15,36 @@
 #include "ipc.h"
 #include "client.h"
 #include "ablib_malloc.h" /* ablib_malloc(), ablib_free() */
+#include "lib_client.h"
 
 /***********************************************************************/
+static void handle_create_cat_rpc(struct arbiter_thread *abt,
+				  struct client_desc *c,
+				  struct abt_request *req, 
+				  struct rpc_header *hdr)
+{
+	cat_t cat;
+	own_t O;
+	cat_type t;
+	struct abt_reply_header rply;
+	struct abreq_create_cat *catreq = (struct abreq_create_cat *)hdr;
+	AB_INFO("Processing create category \n");
+
+	t = catreq->cat_type;
+	cat = create_cat(t);
+
+	//add new label to ownership
+	cat = add_onwership((cat_t *)&(c->ownership), cat);
+	assert(cat != 0); //FIXME run out of ownership space
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	memcpy(&rply.return_val, &cat, sizeof(cat_t));
+
+	abt_sendreply(abt, req, &rply);
+
+}
+
 static void handle_fork_rpc(struct arbiter_thread *abt,
 			    struct client_desc *c,
 			    struct abt_request *req, 
@@ -50,11 +78,11 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	c_new = (struct client_desc *)malloc(sizeof(struct client_desc));
 	memset(c_new, 0, sizeof(c_new));
 
-	//fill out client_desc for the new thread... TODO check with Xi
+	//fill out client_desc for the new thread...
 	memcpy(	&(c_new->client_addr.unix_addr), 
 		&(req->client_addr), 
-		sizeof(req->client_addr));  //?
-	c_new->client_addr.addr_len = req->client_addr_len;  //?
+		sizeof(req->client_addr));
+	c_new->client_addr.addr_len = req->client_addr_len;
 	
 	//FIXME: how to get the pid of new thread
 	//c_new->pid ;
@@ -102,14 +130,13 @@ static void handle_malloc_rpc(struct arbiter_thread *abt,
 		rply.msg_len = sizeof(rply);
 		rply.return_val = (uint32_t)ptr;
 
-	//report voilatioin
+		//report voilatioin
+		AB_MSG("VOILATION: malloc voilation!\n");
 	
 		abt_sendreply(abt, req, &rply);
 		return;
 	}
 	
-
-	//FIXME ablib_malloc() redesgin (in progress)
 	ptr = (void *)ablib_malloc(pid, size, L2);
 
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
@@ -135,20 +162,7 @@ static void handle_free_rpc(struct arbiter_thread *abt,
 	abt_sendreply(abt, req, &rply);
 
 }
-/*
-static void handle_create_category_rpc(struct arbiter_thread *abt,
-				       struct client_desc *c,
-				       struct abt_request *req, 
-				       struct rpc_header *hdr)
-{
-	static cat_t cat_gen = 0;
-	if (++cat_gen >= 0b10000000) {
-		printf("ERROR: category used up\n");	
-		return -1;
-	}
-	return (cat_t) (t || (cat_gen && 0b01111111));
-}
-*/
+
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
 {
@@ -181,6 +195,13 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	}
 
 	switch(hdr->opcode) {
+	case ABT_CREATE_CAT:
+	{
+		AB_INFO("arbiter: create_cat rpc received. req no=%d.\n", req->pkt_sn);
+		handle_create_cat_rpc(abt, c, req, hdr);		
+		break;
+	}
+	
 	case ABT_FORK:
 	{
 		AB_INFO("arbiter: fork rpc received. req no=%d.\n", req->pkt_sn);
@@ -239,10 +260,50 @@ static void init_arbiter_thread(struct arbiter_thread *abt)
 //global state
 struct arbiter_thread arbiter;
 
+//declaration of test function in client_test.c
+int client_test(void);
+
+//init metadata (i.e. struct client_desc) for the first child @ arbiter side
+void init_first_child(pid)
+{
+	struct client_desc *c_new;
+		
+	//allocate a new struct client_desc for new thread
+	c_new = (struct client_desc *)malloc(sizeof(struct client_desc));
+	memset(c_new, 0, sizeof(c_new));
+
+	//fill out client_desc for the new thread...
+	snprintf(c_new->client_addr.unix_addr, 108, "/tmp/abt_client_%d", pid);
+	c_new->client_addr.addr_len = sizeof(c_new->client_addr.unix_addr);
+	
+	c_new->pid = pid;
+		
+	//add new thread to linked list	
+	list_insert_tail(&(arbiter.client_list), (void *)c_new);
+
+}
+
 int main()
 {
+	pid_t pid;
+	
 	absys_thread_control(AB_SET_ME_ARBITER);
 	init_arbiter_thread(&arbiter);
-	server_loop(&arbiter);
-	return 0;
+
+	pid = fork();
+	assert(pid >= 0);
+	if (pid == 0){ //first child
+		sleep(2);
+		absys_thread_control(AB_SET_ME_SPECIAL);
+		//init client metadata @ client side
+		init_client_state((label_t){}, NULL);
+		return client_test();
+	}
+	if (pid > 0){ //arbiter
+		AB_DBG("child pid: %d\n", pid);
+		//init client metadata @ arbiter side
+		init_first_child(pid);
+		server_loop(&arbiter);
+		return 0;
+	}
 }

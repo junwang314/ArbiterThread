@@ -11,7 +11,7 @@ static inline cat_t get_cat_type(cat_t cat)
 #define SET_FLAG(flag)		(flag = 1)	//used in check_label()
 #define CLEAR_FLAG(flag)	(flag = 0)
 
-cat_t create_category(cat_type t)
+cat_t create_cat(cat_type t)
 {
 	static cat_t cat_gen = 0;
 	if (++cat_gen >= 0b10000000) {
@@ -19,6 +19,23 @@ cat_t create_category(cat_type t)
 		return -1;
 	}
 	return (cat_t) (t | (cat_gen & 0b01111111));
+}
+
+//return 0 if ownership runs out of space
+cat_t add_onwership(own_t O, cat_t cat)
+{
+	int i;
+	
+	for (i = 0; i < 8; i++) {
+		// find a blank space and put cat into it
+		if ((O[i] != 0))
+			continue;
+		else {
+			O[i] = cat;
+			return cat;
+		}
+	}
+	return 0;  //no blank space available for the new cat 
 }
 
 int check_label(label_t L1, own_t O1, label_t L2, own_t O2)
