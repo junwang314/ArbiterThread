@@ -8,6 +8,7 @@
 
 #include "arbiter.h"
 
+
 //client identifier: unix domain socket addr
 struct client_key {
 	char unix_addr[256];

@@ -9,6 +9,7 @@
 
 #include "client.h"
 #include "arbiter.h"
+#include "ipc.h"
 
 /************************** Client State Handle ************************/
 
@@ -25,7 +26,10 @@ static bool _cmp_client(const void *key, const void* data)
 	if (!cmpkey->unix_addr || cmpkey->len != c->client_addr.addr_len)
 		return false;
 
-	if (strncmp(cmpkey->unix_addr, c->client_addr.unix_addr, cmpkey->len))
+	if (GET_FAMILY(cmpkey->unix_addr) != GET_FAMILY(c->client_addr.unix_addr))
+		return false;
+
+	if (strncmp((GET_PATH(cmpkey->unix_addr)), GET_PATH(c->client_addr.unix_addr), cmpkey->len))
 		return false;
 	return true;
 }

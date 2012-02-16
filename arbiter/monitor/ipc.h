@@ -1,6 +1,7 @@
 #ifndef _IPC_H
 #define _IPC_H
 
+#include <sys/un.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <abthread_protocol.h>
@@ -22,7 +23,8 @@ struct abt_request {
 	socklen_t client_addr_len;
 };
 
-
+#define GET_PATH(unix_addr) (((struct sockaddr_un *)(unix_addr))->sun_path)
+#define GET_FAMILY(unix_addr) (((struct sockaddr_un *)(unix_addr))->sun_family)
 
 void init_arbiter_ipc(struct arbiter_thread *abt);
 void wait_client_call(struct arbiter_thread *abt, 

@@ -273,8 +273,10 @@ void init_first_child(pid)
 	memset(c_new, 0, sizeof(c_new));
 
 	//fill out client_desc for the new thread...
-	snprintf(c_new->client_addr.unix_addr, 108, "/tmp/abt_client_%d", pid);
-	c_new->client_addr.addr_len = strlen(c_new->client_addr.unix_addr);
+
+	GET_FAMILY(c_new->client_addr.unix_addr) = AF_UNIX;
+	snprintf(GET_PATH(c_new->client_addr.unix_addr), 108, "/tmp/abt_client_%d", pid);
+	c_new->client_addr.addr_len = sizeof(GET_FAMILY(c_new->client_addr.unix_addr)) + strlen(GET_PATH(c_new->client_addr.unix_addr)) + 1;
 	
 	c_new->pid = pid;
 		
