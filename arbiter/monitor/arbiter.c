@@ -15,7 +15,7 @@
 #include "ipc.h"
 #include "client.h"
 #include "ablib_malloc.h" /* ablib_malloc(), ablib_free() */
-#include "lib_client.h"
+//#include "lib_client.h"
 
 /***********************************************************************/
 static void handle_create_cat_rpc(struct arbiter_thread *abt,
@@ -261,7 +261,7 @@ static void init_arbiter_thread(struct arbiter_thread *abt)
 struct arbiter_thread arbiter;
 
 //declaration of test function in client_test.c
-int client_test(void);
+//int client_test(void);
 
 //init metadata (i.e. struct client_desc) for the first child @ arbiter side
 void init_first_child(pid)
@@ -285,22 +285,30 @@ void init_first_child(pid)
 
 }
 
+
+#define APP_EXECUTABLE "../application"
+
+
 int main()
 {
 	pid_t pid;
-	
+       	int rc;
 	absys_thread_control(AB_SET_ME_ARBITER);
 	init_arbiter_thread(&arbiter);
 
 	pid = fork();
 	assert(pid >= 0);
 	if (pid == 0){ //first child
+	
 		sleep(2);
 		absys_thread_control(AB_SET_ME_SPECIAL);
-		//init client metadata @ client side
-		init_client_state((label_t){}, NULL);
-		return client_test();
+		
+		//launch the application, currently we do not care about command line args
+		rc = execv(APP_EXECUTABLE, NULL);
+		perror("app launch failed.\n");
+		assert(rc);
 	}
+
 	if (pid > 0){ //arbiter
 		AB_DBG("child pid: %d\n", pid);
 		//init client metadata @ arbiter side

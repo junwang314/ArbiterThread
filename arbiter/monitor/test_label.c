@@ -9,10 +9,10 @@ void main()
         cat_t dr = 0b01111111;
         cat_t dw = 0b10001111;
         */
-        cat_t ar = create_category(CAT_S);
-        cat_t aw = create_category(CAT_I);       
-        cat_t dr = create_category(CAT_S);
-        cat_t dw = create_category(CAT_I); 
+        cat_t ar = create_cat(CAT_S);
+        cat_t aw = create_cat(CAT_I);       
+        cat_t dr = create_cat(CAT_S);
+        cat_t dw = create_cat(CAT_I); 
         label_t La = {ar, aw};
         label_t Lb = {ar, aw};
         label_t Lc = {ar};

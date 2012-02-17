@@ -116,8 +116,8 @@ int main()
 	unsigned long addr, len;
 	unsigned long addr_to_map, addr_to_brk;
 	void *ret[NUM_THREADS];
-	cat_t ar = create_category(CAT_S);
-        cat_t aw = create_category(CAT_I);       
+	cat_t ar = create_cat(CAT_S);
+        cat_t aw = create_cat(CAT_I);       
         label_t L1 = {ar, aw};
         label_t L2 = {ar};
         

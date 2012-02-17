@@ -11,8 +11,8 @@
 #include <ab_debug.h>
 #include <lib_client.h>
 
-#include "ablib_malloc.h" /* ablib_malloc() */
-#include "label.h" /* label */
+/* #include "ablib_malloc.h" /\* ablib_malloc() *\/ */
+/* #include "label.h" /\* label *\/ */
 
 //number of child thread
 #define NUM_THREADS 0
@@ -103,6 +103,8 @@ static void child_func(unsigned long addr, int i)
 
 	sleep(1000);
 }
+
+
 int client_test()
 {
 	int i, status;
