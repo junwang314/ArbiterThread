@@ -26,8 +26,8 @@ void init_client_ipc(struct abrpc_client_state *cli_state)
 
 	snprintf(unix_addr.sun_path, 108, "/tmp/abt_client_%d", 
 		 cli_state->pid);
-	AB_DBG("unit_addr.sun_path: %s\n", unix_addr.sun_path);
-	AB_DBG("len of unix_addr.sun_path: %d\n", sizeof(unix_addr.sun_path));
+	//AB_DBG("unit_addr.sun_path: %s\n", unix_addr.sun_path);
+	//AB_DBG("len of unix_addr.sun_path: %d\n", sizeof(unix_addr.sun_path));
 
 	cli_state->client_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 	assert(cli_state->client_sock >= 0);
@@ -69,7 +69,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		    sizeof(cli_state->abt_addr));
 	       
 
-	AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
+	//AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
 	assert(rc == hdr->msg_len);
 
 	for(;;) {
@@ -134,22 +134,6 @@ pid_t ab_fork(label_t L, own_t O)
 	struct abreq_fork req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
-
-	//prepare the header
-	req.hdr.abt_magic = ABT_RPC_MAGIC;
-	req.hdr.msg_len = sizeof(req);
-	req.hdr.opcode = ABT_FORK;
-
-	req.label = *(uint64_t *) L;
-	req.ownership = *(uint64_t *) O;
-	_client_rpc(state, &req.hdr, &rply);
-
-	//not an malformed message
-	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
-	assert(rply.msg_len == sizeof(rply));
-	
-	if (rply.return_val) //arbiter failed to register 
-		return -1;
 		
 	//now fork a child thread
 	pid = fork();
@@ -164,6 +148,23 @@ pid_t ab_fork(label_t L, own_t O)
 		init_client_state(L, O);
 	}
 	if (pid > 0){ //parent thread
+		//prepare the header
+		req.hdr.abt_magic = ABT_RPC_MAGIC;
+		req.hdr.msg_len = sizeof(req);
+		req.hdr.opcode = ABT_FORK;
+
+		req.label = *(uint64_t *) L;
+		req.ownership = *(uint64_t *) O;
+		req.pid = (uint32_t)pid;
+		_client_rpc(state, &req.hdr, &rply);
+
+		//not an malformed message
+		assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+		assert(rply.msg_len == sizeof(rply));
+	
+		if (rply.return_val) //arbiter failed to register 
+			return -1;
+
 		return pid;
 	}
 }

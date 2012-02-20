@@ -57,9 +57,9 @@ void wait_client_call(struct arbiter_thread *abt,
 				 0,
 				 (struct sockaddr *)req->client_addr,
 				 &req->client_addr_len);
-	AB_DBG("req->client_addr: %s\n", GET_PATH(req->client_addr));
-	AB_DBG("req->client_addr_len: %d\n", req->client_addr_len);
-	AB_DBG("req->pk_size: %d\n", req->pkt_size);
+	//AB_DBG("req->client_addr: %s\n", GET_PATH(req->client_addr));
+	//AB_DBG("req->client_addr_len: %d\n", req->client_addr_len);
+	//AB_DBG("req->pk_size: %d\n", req->pkt_size);
 	
 	req->pkt_sn = serial++;
 }

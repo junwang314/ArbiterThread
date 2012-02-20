@@ -371,6 +371,8 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
     mchunkptr       fwd;              /* misc temp for linking */
     mchunkptr       bck;              /* misc temp for linking */
 
+    //AB_INFO("__malloc_alloc called: arguments = (%d, %d, av, %lx, %lx)\n", pid, nb, *(unsigned long *)L, (void *)L);
+
     /*
        If there is space available in fastbins, consolidate and retry
        malloc from scratch rather than getting memory from system.  This
@@ -894,6 +896,7 @@ void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
     void *          sysmem;
     void *          retval;
 
+    //AB_INFO("ablib_malloc called: arguments = (%d, %d, %lx, %lx)\n", pid, bytes, *(unsigned long *)L, (void *)L);
     //get av
     av = lookup_mstate_by_label(L);
 
@@ -1338,7 +1341,10 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 	own_t O1;
 	int prot;
 	int pv;
-		
+	
+	//AB_INFO("prot_update called: arguments = (%d, %p, %ld, %lx, %lx)\n",
+	//	pid, p, size, *(unsigned long *)L, (unsigned long)L);
+	
 	abt = &(arbiter);
 	list = &(abt->client_list);
 	
@@ -1351,15 +1357,18 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 		}
 		*(uint64_t *)L1 = c->label;
 		*(uint64_t *)O1 = c->ownership;
-		
+
+		//AB_DBG("before call check_mem_prot: L = %lx, %lx\n", *(uint64_t *)L, (unsigned long)L);
 		pv = (int) check_mem_prot(L1, O1, L);
+		//AB_DBG("check_mem_prot returns: %d\n", pv);
 		switch(pv) {
-			case PROT_N: pv = PROT_NONE; break;		
-			case PROT_R: pv = PROT_READ; break;		
-			case PROT_RW: pv = PROT_READ | PROT_WRITE; break;
-			default: pv = PROT_NONE;
+			case PROT_N: prot = PROT_NONE; break;		
+			case PROT_R: prot = PROT_READ; break;		
+			case PROT_RW: prot = PROT_READ | PROT_WRITE; break;
+			default: prot = PROT_NONE;
 		}
 		//set protection on page table
+		//AB_DBG("absys_mprotect argument=(%d, %lx, %lx, %d)\n)", pid_tmp, p, size, prot);
 		absys_mprotect(pid_tmp, p, size, prot);
 	}
 }

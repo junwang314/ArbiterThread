@@ -46,6 +46,7 @@ struct abreq_fork{
 	struct rpc_header hdr;
 	uint64_t label;
 	uint64_t ownership;
+	uint32_t pid;
 };
 
 struct abreq_malloc {

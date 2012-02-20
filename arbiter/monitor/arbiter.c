@@ -50,7 +50,7 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 			    struct abt_request *req, 
 			    struct rpc_header *hdr)
 {
-	label_t L1, L2; //FIXME label type: uint32_t or label_t?
+	label_t L1, L2;
 	own_t O1, O2;
 	struct client_desc *c_new;
 	struct abt_reply_header rply;
@@ -84,13 +84,20 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 		sizeof(req->client_addr));
 	c_new->client_addr.addr_len = req->client_addr_len;
 	
-	//FIXME: how to get the pid of new thread
-	//c_new->pid ;
+	//FIXME: to get the pid of new thread in secure way
+	c_new->pid  = forkreq->pid;
 	c_new->label = *(uint64_t *)L2;
 	c_new->ownership = *(uint64_t *)O2;
 	
+	GET_FAMILY(c_new->client_addr.unix_addr) = AF_UNIX;
+	snprintf(GET_PATH(c_new->client_addr.unix_addr), 108, "/tmp/abt_client_%d", c_new->pid);
+	c_new->client_addr.addr_len = sizeof(GET_FAMILY(c_new->client_addr.unix_addr)) + strlen(GET_PATH(c_new->client_addr.unix_addr)) + 1;
+	
 	//add new thread to linked list	
 	list_insert_tail(&(arbiter.client_list), (void *)c_new);
+	
+	//AB_DBG("new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
+	//	c_new->pid, c_new->label, c_new->ownership);
 	
 	//TODO set up page tables for existing allocated memory
 			
@@ -293,15 +300,14 @@ int main()
 {
 	pid_t pid;
        	int rc;
-	absys_thread_control(AB_SET_ME_ARBITER);
-	init_arbiter_thread(&arbiter);
+       	void *addr = 0x80000000;
 
 	pid = fork();
 	assert(pid >= 0);
 	if (pid == 0){ //first child
 	
 		sleep(2);
-		absys_thread_control(AB_SET_ME_SPECIAL);
+		//absys_thread_control(AB_SET_ME_SPECIAL);
 		
 		//launch the application, currently we do not care about command line args
 		rc = execv(APP_EXECUTABLE, NULL);
@@ -310,9 +316,16 @@ int main()
 	}
 
 	if (pid > 0){ //arbiter
+		absys_thread_control(AB_SET_ME_ARBITER);
+		init_arbiter_thread(&arbiter);
 		AB_DBG("child pid: %d\n", pid);
 		//init client metadata @ arbiter side
 		init_first_child(pid);
+		//FIXME: to embed this part in allocator
+		mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
+			MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
+		touch_mem((void *)addr, 30*1024*4);
+		//server routine
 		server_loop(&arbiter);
 		return 0;
 	}

@@ -1094,7 +1094,7 @@ void ablib_free(pid_t pid, void* mem);
 
 void *ablib_sbrk (pid_t pid, int increment);
 
-#define __TEST_MALLOC_ONLY_
+//#define __TEST_MALLOC_ONLY_
 #ifndef __TEST_MALLOC_ONLY_
 static void prot_update(pid_t pid, void *p, long size, label_t L);
 #else

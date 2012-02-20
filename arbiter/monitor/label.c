@@ -119,6 +119,9 @@ enum mem_prot check_mem_prot(label_t L1, own_t O1, label_t L2)
 	enum mem_prot prot;
 	int pw, pr;
 
+	//AB_INFO("check_mem_prot called, argument=(%lx, %lx, %lx, %lx)\n",
+	//	*(unsigned long *)L1, *(unsigned long *)O1, *(unsigned long *)L2, (void *)L2);
+
 	// check information flow from 1 to 2, i.e., write
 	pw = check_label(L1, O1, L2, NULL);
 	
