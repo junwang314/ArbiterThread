@@ -307,7 +307,6 @@ int main()
 	if (pid == 0){ //first child
 	
 		sleep(2);
-		//absys_thread_control(AB_SET_ME_SPECIAL);
 		
 		//launch the application, currently we do not care about command line args
 		rc = execv(APP_EXECUTABLE, NULL);

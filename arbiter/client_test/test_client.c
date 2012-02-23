@@ -11,11 +11,12 @@
 #include <ab_debug.h>
 #include <lib_client.h>
 
-/* #include "ablib_malloc.h" /\* ablib_malloc() *\/ */
-/* #include "label.h" /\* label *\/ */
-
 //number of child thread
-#define NUM_THREADS 2
+#define NUM_THREADS 3
+
+//DEMO
+//#define DEMO
+//#define DEMO2
 
 static void suicide()
 {
@@ -24,7 +25,7 @@ static void suicide()
 	*((int *) x) = 1;
 }
 
-static void child_func(label_t L1, label_t L2, int i)
+static void child_func(unsigned long addr_to_map, label_t L1, label_t L2, int i)
 {
 	void *ret;
 	int buf;
@@ -34,70 +35,82 @@ static void child_func(label_t L1, label_t L2, int i)
 	sleep(10);
 
 	if (i == 0) {
-		addr = (unsigned long)ab_malloc(7*1024*4, L1);
-		printf("child %d malloc: %lx\n", i, addr);
-	}
-/*	//thread 0 initialize data
-	if (i == 0) {
+#ifndef DEMO
+		addr = (unsigned long)ab_malloc(4, L1);
+		printf("child B malloc: %lx\n", addr);
+#endif
+#ifdef DEMO
+		//child B initialize data
 		//note
 		printf("===============================\n");
-		printf("thread 0 has the sensitive data.\nthread 1, 2, 3 could be bad guy.\nthread 4 is a good guy.\n");
+		printf("child B has the sensitive data.\nchild D could be bad guy.\nchild C is a good guy.\n");
 		printf("===============================\n");
-		printf("thread %d: initialize data...\n", i);
+		printf("child B: initialize data...\n");
+		addr = addr_to_map;
 		*(unsigned long *)addr = 0xdeadbeef;
 		buf = *(unsigned long *)addr;
-		printf("thread %d: init done. the data is %x\n", i, buf);
+		printf("child B: init done. the data is %x\n", buf);
+#endif
 	}
+#ifdef DEMO1
 	//wait thread 0
 	sleep(2);
 	
-	//thread 1 try to read directly. it should fail
-	if (i == 1) {
-		printf("\nthread %d: try to read directly...\n", i);
+	//child D try to read directly. it should fail
+	if (i == 2) {
+		printf("\nchild D: try to read directly...\n");
+		addr = addr_to_map;
 		buf = *(unsigned long *)addr;
-		printf("thread %d: attack succeed, data is %x.\n", i, buf);
+		printf("child D: attack succeed, data is %x.\n", buf);
 	}
+#endif
+#ifdef DEMO2
 	//wait thread 1
 	sleep(2);
 	
-	//thread 2 try to modify protection using mprotect(). it shoud fail
+	//child D try to modify protection using mprotect(). it shoud fail
 	if (i == 2) {
-		printf("\nthread %d: try to change permission using mprotect()...\n", i);
+		printf("\nchild D: try to change permission using mprotect()...\n");
+		addr = addr_to_map;
 		if (mprotect((void *) addr, 4096, PROT_READ|PROT_WRITE) == 0) {
 			buf = *(unsigned long *)addr;
-			printf("thread %d: attack succeed, data is %x.\n", i, buf);
+			printf("child D: attack succeed, data is %x.\n", buf);
 		}
 		else {
-			printf("thread %d: attack failed.\n", i);
+			printf("child D: attack failed.\n");
 		}
 	}
+#endif
+#ifdef DEMO3
 	//wait thread 2
 	sleep(2);
 	
-	//thread 3 try to unmap the region first, and then map it again. but the new mapping is not the same one
-	if (i == 3) {
-		printf("\nthread %d: step 1 - unmap the region using munmap()...\n", i);
-
+	//child D try to unmap the region first, and then map it again. but the new mapping is not the same one
+	if (i == 2) {
+		printf("\nchild D: step 1 - unmap the region using munmap()...\n");
+		addr = addr_to_map;
 		if (munmap((void *)addr, 4096) == 0) {
-			printf("thread %d: step 1 - unmap done.\n", i);
+			printf("child D: step 1 - unmap done.\n");
 		}
-		printf("thread %d: step 2 - map the same region using mmap() with RW privilege...\n", i);
+		printf("child D: step 2 - map the same region using mmap() with RW privilege...\n");
 		ret = (void *)mmap((void *)addr, 4096, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
-		printf("thread %d: step 2 - map done, now try to read...\n", i);
+		printf("child D: step 2 - map done, now try to read...\n");
 		buf = *(unsigned long *)addr;
-		printf("thread %d: attack succeed, data is %x.\n", i, buf);
+		printf("child D: attack succeed, data is %x.\n", buf);
 	}
+#endif
+#ifdef DEMO
 	//wait thread 3
 	sleep(2);
 	
-	//thread 4 can read it correctly
-	if (i == 4) {
-		printf("\nthread %d: try to read directly...\n", i);
+	//child C can read it correctly
+	if (i == 1) {
+		printf("\nchild C: try to read directly...\n", i);
+		addr = addr_to_map;
 		buf = *(unsigned long *)addr;
-		printf("thread %d: data is %x.\n", i, buf);
+		printf("child C: data is %x.\n", buf);
 	}
-
-*/	
+#endif
 /*	int a;
 	unsigned long *p = (unsigned long *) (addr -4096);
 	a = *p; //read 
@@ -124,15 +137,15 @@ int client_test()
         label_t L1 = {ar, aw};
         label_t L2 = {ar};
 	own_t O = {};
-
-	absys_thread_control(AB_SET_ME_SPECIAL);
-
+	
 	addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0)
 			pid[i] = ab_fork(L1, O);
 		if (i == 1)
 			pid[i] = ab_fork(L2, O);
+		if (i == 2)
+			pid[i] = ab_fork((label_t){}, (own_t){});
 		if (pid[i] < 0) {
 			perror("thread cannot be created.\n");
 			exit(0);
@@ -140,7 +153,7 @@ int client_test()
 		if (pid[i] == 0) {
 			printf("child process %i created, pid = %lu.\n",
 				 i, (unsigned long)getpid());
-			child_func(L1, L2, i);
+			child_func(addr_to_map, L1, L2, i);
 			exit(0);
 		}		
 	}
@@ -150,17 +163,12 @@ int client_test()
 	// test code for ablib_brk()
 //	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 //	printf("child 0 sbrk: %lx\n", addr);
-
-	//mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
-	//	MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
-	//touch_mem((void *)addr, 10*1024*4);
 	
 	addr = (unsigned long)ab_malloc(7*1024*4, L1);
-	printf("child malloc: %lx\n", addr);
-	//absys_mprotect(pid[1], (addr - 8), 10*1024*4, PROT_READ);
+	printf("child A malloc: %lx\n", addr);
 	
-	addr = (unsigned long)ab_malloc(8*1024*4, L2);
-	printf("child malloc: %lx\n", addr);
+	addr = (unsigned long)ab_malloc(4, L2);
+	printf("child A malloc: %lx\n", addr);
 	
 	//addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
 	//printf("child 0 malloc: %lx\n", addr);
