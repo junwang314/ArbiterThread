@@ -257,7 +257,7 @@ extern pthread_mutex_t __malloc_lock;
 #define M_TRIM_THRESHOLD       -1
 
 #ifndef DEFAULT_TRIM_THRESHOLD
-#define DEFAULT_TRIM_THRESHOLD (256 * 1024)
+#define DEFAULT_TRIM_THRESHOLD (10 * 1024 * 4)
 #endif
 
 /*
@@ -893,9 +893,9 @@ typedef struct malloc_chunk* mfastbinptr;
     to treat these as the fields of a malloc_chunk*.
 */
 
-typedef struct malloc_chunk mtopbin;
+//typedef struct malloc_chunk mtopbin;
 
-#define unit_tops(M) (&(M->topbin))
+//#define unit_tops(M) (&(M->topbin))
 
 /*
    ----------- Internal state representation and initialization -----------
@@ -905,8 +905,8 @@ struct malloc_state {
 	/* Label */
 	label_t label;
   
-	/* list for unit header */
-	struct linked_list unit_hdr_list;
+	/* list for unit state */
+	struct linked_list ustate_list;
 
 	/* The maximum chunk size to be eligible for fastbin */
 	size_t  max_fast;   /* low 2 bits used as flags */
@@ -914,8 +914,8 @@ struct malloc_state {
 	/* Fastbins */
 	mfastbinptr      fastbins[NFASTBINS];
 
-	/* Base of the topmost chunks -- not otherwise kept in a bin */
-	mtopbin		 topbin;
+	///* Base of the topmost chunks -- not otherwise kept in a bin */
+	//mtopbin		 topbin;
 
 	/* The remainder from the most recent split of a small request */
 	mchunkptr        last_remainder;
@@ -959,7 +959,7 @@ typedef struct malloc_state *mstate;
    malloc relies on the property that malloc_state is initialized to
    all zeroes (as is true of C statics).
 */
-extern struct malloc_state __malloc_state;  /* never directly referenced */
+//extern struct malloc_state __malloc_state;  /* never directly referenced */
 
 /*
    All uses of av_ are via get_malloc_state().
@@ -969,11 +969,11 @@ extern struct malloc_state __malloc_state;  /* never directly referenced */
    Also, it is called in check* routines if __UCLIBC_MALLOC_DEBUGGING__ is set.
 */
 
-#define get_malloc_state() (&(__malloc_state))
+//#define get_malloc_state() (&(__malloc_state))
 
 /* External internal utilities operating on mstates */
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
-void attribute_hidden __malloc_consolidate(mstate);
+//void attribute_hidden __malloc_consolidate(mstate, ustate);  TODO: ask Xi
 
 
 /* Debugging support */
@@ -1023,17 +1023,17 @@ extern void __do_check_malloc_state(void);
   working dlmalloc allocators.
   
   unit-->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      +----|header|  chunks   |            |                |              |   
-      |    |             |                                                 |
-      |    |                             ...                               |
-      |    |                                                  |  unit_top  |
-  unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      +----|header|                                                        |   
-      |    |                                                               |
-      |    |                                                               |
-      |    |                                 |           unit_top          |
-  unit+->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-           |header|                                                        |
+           |     chunks       |            |                |              |   
+           |             |                                                 |
+           |                             ...                               |
+           |                                                  |  unit_top  |
+  unit-->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+           |                                                               |   
+           |                                                               |
+           |                                                               |
+           |                                 |           unit_top          |
+  unit-->  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+           |                                                               |
            |                                                               |
            |                                                               |
            |                                                               |
@@ -1046,33 +1046,60 @@ extern void __do_check_malloc_state(void);
 
 #define UNIT_SIZE UNIT_ALIGNMENT	//alias for (40kB) unit size
 
-struct unit_header {
-	mstate unit_av;
+struct unit_state {
 	mchunkptr unit_top;
-	label_t label;
+	unsigned long addr;
+	size_t length;
+	mstate unit_av;
 };
+
+typedef struct unit_state *ustate;
+
+static inline ustate unit_init_state(mchunkptr unit_top, unsigned long addr,
+			size_t length, mstate unit_av)
+{
+	ustate unit;
+	
+	unit = (ustate)malloc(sizeof(struct unit_state));
+	unit->unit_top = unit_top;
+	unit->addr = addr;
+	unit->length = length;
+	unit->unit_av = unit_av;
+	
+	return unit;
+}
+
+#define get_ustate(list_node)	((ustate)(list_node->data))
 
 /* ----------------------- abheap definition ----------------------- */
 
 //mstates for different set of units are stored in a linked list
 extern struct abheap_state __abheap_state;
 
-#define get_abheap_state()	(&(__abheap_state))
+#define get_abstate()	(&(__abheap_state))
 
 struct abheap_state {
 
 	mchunkptr ab_top;
 
-	struct linked_list malloc_state_list;
+	struct linked_list mstate_list;
+	
+	struct linked_list ustate_list;
 };
+
+#define CHANNEL_SIZE 10*10*1024*4
+#define CHANNEL_ADDR 0x80000000
 
 /* ----------------------- mstate retrival ----------------------- */
 
 //look up mstate by label, called by ablib_malloc()
 mstate lookup_mstate_by_label(label_t L);
 
-//look up mstate by memory address, called by ablib_free()
-mstate lookup_mstate_by_mem(void *ptr);
+//look up ustate by memory address, called by ablib_free()
+ustate lookup_ustate_by_mem(void *ptr);
+
+////look up mstate by memory address, called by ablib_free()
+//mstate lookup_mstate_by_mem(void *ptr);
 
 //locate the unit header using an address 
 struct unit_header *get_unit_header(void *ptr);

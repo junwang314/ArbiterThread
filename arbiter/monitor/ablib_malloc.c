@@ -343,374 +343,225 @@ void __do_check_malloc_state(void)
 */
 static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 {
-    mchunkptr       old_ab_top;        /* incoming value of av->top */
-    size_t          old_max_top_size;       /* its size */
-    char*           old_ab_end;        /* its end address */
+	mchunkptr	old_ab_top;	/* incoming value of av->top */
+	size_t		old_max_top_size;	/* its size */
+	char*		old_ab_end;	/* its end address */
 
-    long            size;           /* arg to first MORECORE or mmap call */
-    char*           fst_brk;        /* return value from MORECORE */
+	long		size;		/* arg to first MORECORE or mmap call */
+	char*		fst_brk;	/* return value from MORECORE */
+	char*		ab_fst_brk;	/* return value from AB_MORECORE */
 
-    long            correction;     /* arg to 2nd MORECORE call */
-    char*           snd_brk;        /* 2nd return val */
+	long		correction;	/* arg to 2nd MORECORE call */
+	char*		snd_brk;	/* 2nd return val */
+	char*		ab_snd_brk;	/* 2nd return val from AB_MORECORE*/
 
-    size_t          front_misalign; /* unusable bytes at front of new space */
-    size_t          end_misalign;   /* partial page left at end of new space */
-    char*           aligned_brk;    /* aligned offset into brk */
+	size_t		front_misalign;	/* unusable bytes at front of new space */
+	size_t		end_misalign;	/* partial page left at end of new space */
+	char*		aligned_brk;	/* aligned offset into brk */
 
-    mchunkptr       unit_top;
-    size_t          unit_top_size;
+	mchunkptr	unit_top;
+	size_t		unit_top_size;
+	ustate		unit;
 
-    mchunkptr       p;              /* the allocated/returned chunk */
-    mchunkptr       remainder;      /* remainder from allocation */
-    unsigned long    remainder_size; /* its size */
+	mchunkptr	p;		/* the allocated/returned chunk */
+	mchunkptr	remainder;	/* remainder from allocation */
+	unsigned long	remainder_size;	/* its size */
 
-    unsigned long    sum;            /* for updating stats */
+	unsigned long	sum;		/* for updating stats */
 
-    size_t          pagemask  = av->pagesize - 1;
-    
-    mchunkptr       fwd;              /* misc temp for linking */
-    mchunkptr       bck;              /* misc temp for linking */
+	size_t		pagemask  = av->pagesize - 1;
+	    
+	mchunkptr	fwd;		/* misc temp for linking */
+	mchunkptr	bck;		/* misc temp for linking */
 
-    //AB_INFO("__malloc_alloc called: arguments = (%d, %d, av, %lx, %lx)\n", pid, nb, *(unsigned long *)L, (void *)L);
-
-    /*
-       If there is space available in fastbins, consolidate and retry
-       malloc from scratch rather than getting memory from system.  This
-       can occur only if nb is in smallbin range so we didn't consolidate
-       upon entry to malloc. It is much easier to handle this case here
-       than in malloc proper.
-       */
-
-    if (have_fastchunks(av)) {
-	assert(in_smallbin_range(nb));
-	__malloc_consolidate(av);
-	return (void *)ablib_malloc(pid, nb - MALLOC_ALIGN_MASK, L);
-    }
-
-
-    /*
-       If have mmap, and the request size meets the mmap threshold, and
-       the system supports mmap, and there are few enough currently
-       allocated mmapped regions, try to directly map this request
-       rather than expanding top.
-       */
-
-    if ((unsigned long)(nb) >= (unsigned long)(av->mmap_threshold) &&
-	    (av->n_mmaps < av->n_mmaps_max)) {
-
-	char* mm;             /* return value from mmap call*/
+	//AB_INFO("__malloc_alloc called: arguments = (%d, %d, av, %lx, %lx)\n", 
+	//	pid, nb, *(unsigned long *)L, (void *)L);
 
 	/*
-	   Round up size to nearest page.  For mmapped chunks, the overhead
-	   is one (sizeof(size_t)) unit larger than for normal chunks, because there
-	   is no following chunk whose prev_size field could be used.
+	   If there is space available in fastbins, consolidate and retry
+	   malloc from scratch rather than getting memory from system.  This
+	   can occur only if nb is in smallbin range so we didn't consolidate
+	   upon entry to malloc. It is much easier to handle this case here
+	   than in malloc proper.
 	   */
-	size = (nb + (sizeof(size_t)) + UNIT_ALIGNMENT + pagemask) & ~pagemask;
-	AB_DBG("UNIT_ALIGNMENT = %ld, size  = %ld\n", UNIT_ALIGNMENT, size);
 
-	/* Don't try if size wraps around 0 */
-	if ((unsigned long)(size) > (unsigned long)(nb)) {
-		//touch the memory
-		mm = (char *)mmap(0, size, PROT_READ|PROT_WRITE, 
-			MAP_ANONYMOUS|MAP_SHARED, -1, 0);
-		assert(mm != (char *)(-1));
-		touch_mem(mm, size);
+	if (have_fastchunks(av)) {
+		assert(in_smallbin_range(nb));
+		__malloc_consolidate(av);
+		return (void *)ablib_malloc(pid, nb - MALLOC_ALIGN_MASK, L);
+	}
 
-		if (mm != (char *)(-1)) {
-			/*
-			   The offset to the start of the mmapped region is stored
-			   in the prev_size field of the chunk. This allows us to adjust
-			   returned start address to meet alignment requirements here
-			   and in memalign(), and still be able to compute proper
-			   address argument for later munmap in free() and realloc().
-			   */
+	/*
+	   If have mmap, and the request size meets the mmap threshold, and
+	   the system supports mmap, and there are few enough currently
+	   allocated mmapped regions, try to directly map this request
+	   rather than expanding top.
+	   */
 
-			front_misalign = (size_t)chunk2mem(mm) & UNIT_ALIGNMENT;
-			if (front_misalign > 0) {
-				correction = UNIT_ALIGNMENT - front_misalign;
-				munmap(mm, correction);
-				p = (mchunkptr)(mm + correction);
-				p->prev_size = correction;
-				set_head(p, (size - correction) |IS_MMAPPED);
-			}
-			else {
-				p = (mchunkptr)mm;
-				p->prev_size = 0;
-				set_head(p, size|IS_MMAPPED);
-			}
-				
-			AB_DBG("before call AB_MMAP\n");
-			mm = (char*)(AB_MMAP(pid, (void *)p, (size - correction), PROT_READ|PROT_WRITE));
-			AB_DBG("after call AB_MMAP\n");
-			assert(mm == (char *)p);
+	if ((unsigned long)(nb) >= (unsigned long)(av->mmap_threshold) &&
+		(av->n_mmaps < av->n_mmaps_max)) {
+
+		char* mm;	/* return value from mmap call*/
+		char* ab_mm;	/* return value from AB_MMAP call*/
+
+		/*
+		   Round up size to nearest page.  For mmapped chunks, the overhead
+		   is one (sizeof(size_t)) unit larger than for normal chunks, because there
+		   is no following chunk whose prev_size field could be used.
+		   */
+		size = (nb + (sizeof(size_t)) + MALLOC_ALIGN_MASK + pagemask) & ~pagemask;
+
+		/* Don't try if size wraps around 0 */
+		if ((unsigned long)(size) > (unsigned long)(nb)) {
+			//touch the memory
+			mm = (char *)mmap(NULL, size, PROT_READ|PROT_WRITE, 
+				MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+			assert(mm != (char *)(-1));
+			touch_mem(mm, size);
 
 			if (mm != (char *)MORECORE_FAILURE) {
-				/* update statistics */
+				/*
+				   The offset to the start of the mmapped region is stored
+				   in the prev_size field of the chunk. This allows us to adjust
+				   returned start address to meet alignment requirements here
+				   and in memalign(), and still be able to compute proper
+				   address argument for later munmap in free() and realloc().
+				   */
 
-				if (++av->n_mmaps > av->max_n_mmaps)
-					av->max_n_mmaps = av->n_mmaps;
+				front_misalign = (size_t)chunk2mem(mm) & MALLOC_ALIGN_MASK;
+				if (front_misalign > 0) {
+					correction = MALLOC_ALIGNMENT - front_misalign;
+					p = (mchunkptr)(mm + correction);
+					p->prev_size = correction;
+					set_head(p, (size - correction) |IS_MMAPPED);
+				}
+				else {
+					p = (mchunkptr)mm;
+					p->prev_size = 0;
+					set_head(p, size|IS_MMAPPED);
+				}
+				
+				AB_DBG("before call AB_MMAP\n");
+				ab_mm = (char*)(AB_MMAP(pid, (void *)p, size, PROT_READ|PROT_WRITE));
+				AB_DBG("after call AB_MMAP\n");
+				assert(ab_mm == (char*)p);
 
-				sum = av->mmapped_mem += size;
-				if (sum > (unsigned long)(av->max_mmapped_mem))
-					av->max_mmapped_mem = sum;
-				sum += av->sbrked_mem;
-				if (sum > (unsigned long)(av->max_total_mem))
-					av->max_total_mem = sum;
+				if (ab_mm != (char*)(MORECORE_FAILURE)) {
+					/* update statistics */
 
-				check_chunk(p);
+					if (++av->n_mmaps > av->max_n_mmaps)
+						av->max_n_mmaps = av->n_mmaps;
+
+					sum = av->mmapped_mem += size;
+					if (sum > (unsigned long)(av->max_mmapped_mem))
+						av->max_mmapped_mem = sum;
+					sum += av->sbrked_mem;
+					if (sum > (unsigned long)(av->max_total_mem))
+						av->max_total_mem = sum;
+
+					check_chunk(p);
 		
-				//update protection for other threads
-				prot_update(pid, p, size, L);
+					//update protection for other threads
+					prot_update(pid, p, size, L);
 
-				return chunk2mem(p);
-			}
-			else {
-				munmap(mm, size);
+					return chunk2mem(p);
+				}
+				else {
+					munmap(mm, size);
+				}
 			}
 		}
 	}
-    }
 
-    /* Record incoming configuration of top */
+	/* Record incoming configuration of top */
 
-    old_ab_top = get_abheap_state()->ab_top;
-    old_ab_end = (char *)old_ab_top;
-    old_max_top_size = chunksize(unit_tops(av)->fd); 
-    //old_end  = (char*)(chunk_at_offset(old_top, old_size));
+	old_ab_top = get_abstate()->ab_top;
+	old_ab_end = (char *)old_ab_top;
+	//old_max_top_size = chunksize(get_ustate((&(av->ustate_list))->tail)->unit_top); 
+	//old_end  = (char*)(chunk_at_offset(old_top, old_size));
 
-    fst_brk = snd_brk = (char*)(MORECORE_FAILURE);
+	fst_brk = snd_brk = (char*)(MORECORE_FAILURE);
 
-    /* If not the first time through, we require old_size to
-     * be at least MINSIZE and to have prev_inuse set.  */
+	///* If not the first time through, we require old_size to
+	// * be at least MINSIZE and to have prev_inuse set.  */
 
-    //assert((old_top == initial_top(av) && old_size == 0) ||
+	//assert((old_top == initial_top(av) && old_size == 0) ||
 	//    ((unsigned long) (old_size) >= MINSIZE &&
 	//     prev_inuse(old_top)));
 
-    /* Precondition: not enough current space to satisfy nb request */
-    assert((unsigned long)(old_max_top_size) < (unsigned long)(nb + MINSIZE));
+	///* Precondition: not enough current space to satisfy nb request */
+	//assert((unsigned long)(old_max_top_size) < (unsigned long)(nb + MINSIZE));
 
-    /* Precondition: all fastbins are consolidated */
-    assert(!have_fastchunks(av));
+	/* Precondition: all fastbins are consolidated */
+	assert(!have_fastchunks(av));
 
-
-    /* Request UNIT_SIZE memory each time */
-    size = UNIT_SIZE;
-
-//    /*
-//       If contiguous, we can subtract out existing space that we hope to
-//       combine with new space. We add it back later only if
-//       we don't actually get contiguous space.
-//     */
-
-//    if (contiguous(av))
-//	size -= old_size;
-
-//    /*
-//       Round to a multiple of page size.
-//       If MORECORE is not contiguous, this ensures that we only call it
-//       with whole-page arguments.  And if MORECORE is contiguous and
-//       this is not first time through, this preserves page-alignment of
-//       previous calls. Otherwise, we correct to page-align below.
-//       */
-//
-//    size = (size + pagemask) & ~pagemask;
-
-    /*
-       Don't try to call MORECORE if argument is so big as to appear
-       negative. Note that since mmap takes size_t arg, it may succeed
-       below even if we cannot call MORECORE.
-       */
-
-    if (size > 0)
-	fst_brk = (char*)(AB_MORECORE(pid, size));
-
-    /*
-       If have mmap, try using it as a backup when MORECORE fails or
-       cannot be used. This is worth doing on systems that have "holes" in
-       address space, so sbrk cannot extend to give contiguous space, but
-       space is available elsewhere.  Note that we ignore mmap max count
-       and threshold limits, since the space will not be used as a
-       segregated mmap region.
-       */
-
-    if (fst_brk == (char*)(MORECORE_FAILURE)) {
-
-//	/* Cannot merge with old top, so add its size back in */
-//	if (contiguous(av))
-//	    size = (size + old_size + pagemask) & ~pagemask;
-
-//	/* If we are relying on mmap as backup, then use larger units */
-//	if ((unsigned long)(size) < (unsigned long)(MMAP_AS_MORECORE_SIZE))
-//	    size = MMAP_AS_MORECORE_SIZE;
-
-	/* Don't try if size wraps around 0 */
-//	if ((unsigned long)(size) > (unsigned long)(nb)) {
-
-	    fst_brk = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
-
-	    if (fst_brk != (char*)(MORECORE_FAILURE)) {
-		//touch the memory
-		touch_mem(fst_brk, size);
-
-		/* We do not need, and cannot use, another sbrk call to find end */
-		snd_brk = fst_brk + size;
-
-		/* Record that we no longer have a contiguous sbrk region.
-		   After the first time mmap is used as backup, we do not
-		   ever rely on contiguous space since this could incorrectly
-		   bridge regions.
-		   */
-		set_noncontiguous(av);
-	    }
-//	}
-    }
-
-    if (fst_brk != (char*)(MORECORE_FAILURE)) {
-	//AB_DBG("before touch mem\n");	
-	//touch the memory
-	//touch_mem(fst_brk, size/2);
-	//AB_DBG("after touch mem\n");
-	av->sbrked_mem += size;
+	/* Request UNIT_SIZE memory each time */
+	size = UNIT_SIZE;
 
 	/*
-	   If MORECORE extends previous space, we can likewise extend top size.
+	   Don't try to call MORECORE if argument is so big as to appear
+	   negative. Note that since mmap takes size_t arg, it may succeed
+	   below even if we cannot call MORECORE.
 	   */
-
-//	if (fst_brk == old_ab_end && snd_brk == (char*)(MORECORE_FAILURE)) {
-//	    set_head(old_top, (size + old_size) | PREV_INUSE);
-//	}
-
+	if (size > 0) {
+		fst_brk = (char*)(AB_MORECORE(pid, size));
+		assert(fst_brk != (char*)(MORECORE_FAILURE));
+	}
 	/*
-	   Otherwise, make adjustments:
+	   If have mmap, try using it as a backup when MORECORE fails or
+	   cannot be used. This is worth doing on systems that have "holes" in
+	   address space, so sbrk cannot extend to give contiguous space, but
+	   space is available elsewhere.  Note that we ignore mmap max count
+	   and threshold limits, since the space will not be used as a
+	   segregated mmap region.
+	   */
+	//this should less likely happen!
+	if (fst_brk == (char*)(MORECORE_FAILURE)) {
+		fst_brk = (char*)(AB_MMAP(pid, 0, size, PROT_READ|PROT_WRITE));
+		
+		if (fst_brk != (char*)(MORECORE_FAILURE)) {
+			fst_brk = (char *)mmap(NULL, size, PROT_READ|PROT_WRITE, 
+				MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+			assert(fst_brk != (char *)(-1));	//FIXME: BUG if mmap fails
 
-	 * If the first time through or noncontiguous (interventing foreign
-	  sbrk), we need to call sbrk just to find out where the end of memory lies.
+			//touch the memory
+			touch_mem(fst_brk, size);
 
-	 * We need to ensure that all returned chunks from malloc will meet
-	 MALLOC_ALIGNMENT
+			/* We do not need, and cannot use, another sbrk call to find end */
+			snd_brk = fst_brk + size;
 
-	 * If there was an intervening foreign sbrk, we need to adjust sbrk
-	 request size to account for fact that we will not be able to
-	 combine new space with existing space in old_top.
+			/* Record that we no longer have a contiguous sbrk region.
+			   After the first time mmap is used as backup, we do not
+			   ever rely on contiguous space since this could incorrectly
+			   bridge regions.
+			   */
+			set_noncontiguous(av);
+		}
+	}
+	else { //fst_brk != (char*)(MORECORE_FAILURE)
 
-	 * Almost all systems internally allocate whole pages at a time, in
-	 which case we might as well use the whole last page of request.
-	 So we allocate enough more memory to hit a page boundary now,
-	 which in turn causes future contiguous calls to page-align.
-	 */
-
-//	else {
-	    front_misalign = 0;
-	    end_misalign = 0;
-	    correction = 0;
-	    aligned_brk = fst_brk;
-
-	    /*
-	       If MORECORE returns an address lower than we have seen before,
-	       we know it isn't really contiguous.  This and some subsequent
-	       checks help cope with non-conforming MORECORE functions and
-	       the presence of "foreign" calls to MORECORE from outside of
-	       malloc or by other threads.  We cannot guarantee to detect
-	       these in all cases, but cope with the ones we do detect.
-	       */
-	    if (contiguous(av) && old_max_top_size != 0 && fst_brk < old_ab_end) {
-		set_noncontiguous(av);
-		assert(0);
-	    } // this situation should rarely happen in our system
-
-	    /* handle contiguous cases */
-	    if (contiguous(av)) {
-
-		/* We can tolerate forward non-contiguities here (usually due
-		   to foreign calls) but treat them as part of our space for
-		   stats reporting.  */
-		if (old_max_top_size != 0)
-		    av->sbrked_mem += fst_brk - old_ab_end;
-
-		/* Guarantee alignment of first new chunk made from this space */
-
-//		front_misalign = (size_t)chunk2mem(fst_brk) & MALLOC_ALIGN_MASK;
-//		if (front_misalign > 0) {
-
-		    /*
-		       Skip over some bytes to arrive at an aligned position.
-		       We don't need to specially mark these wasted front bytes.
-		       They will never be accessed anyway because
-		       prev_inuse of av->top (and any chunk created from its start)
-		       is always true after initialization.
-		       */
-
-//		    correction = MALLOC_ALIGNMENT - front_misalign;
-//		    aligned_brk += correction;
-//		}
+		av->sbrked_mem += size;
 
 		/*
-		   If this isn't adjacent to existing space, then we will not
-		   be able to merge with old_top space, so must add to 2nd request.
-		   */
+		 * We need to ensure that all returned chunks from malloc will meet
+		 MALLOC_ALIGNMENT
 
-		//correction += old_size;
-
-		/* Extend the end address to hit a page boundary */
-//		end_misalign = (size_t)(fst_brk + size + correction);
-//		correction += ((end_misalign + pagemask) & ~pagemask) - end_misalign;
-
-//		assert(correction >= 0);
-//		snd_brk = (char*)(AB_MORECORE(correction));
-
-//		if (snd_brk == (char*)(MORECORE_FAILURE)) {
-		    /*
-		       If can't allocate correction, try to at least find out current
-		       brk.  It might be enough to proceed without failing.
-		       */
-//		    correction = 0;
-//		    snd_brk = (char*)(AB_MORECORE(0));
-//		}
-//		else if (snd_brk < fst_brk) {
-		    /*
-		       If the second call gives noncontiguous space even though
-		       it says it won't, the only course of action is to ignore
-		       results of second call, and conservatively estimate where
-		       the first call left us. Also set noncontiguous, so this
-		       won't happen again, leaving at most one hole.
-
-		       Note that this check is intrinsically incomplete.  Because
-		       MORECORE is allowed to give more space than we ask for,
-		       there is no reliable way to detect a noncontiguity
-		       producing a forward gap for the second call.
-		       */
-//		    snd_brk = fst_brk + size;
-//		    correction = 0;
-//		    set_noncontiguous(av);
-//		}
-	        snd_brk = (char*)(AB_MORECORE(pid, 0));
-
-	    }
-
-	    /* handle non-contiguous cases */
-	    else {
-		/* MORECORE/mmap must correctly align */
+		 * Almost all systems internally allocate whole pages at a time, in
+		 which case we might as well use the whole last page of request.
+		 So we allocate enough more memory to hit a page boundary now,
+		 which in turn causes future contiguous calls to page-align.
+		 */
+	
+		//	/* MORECORE/mmap must correctly align */
 		assert(aligned_OK(chunk2mem(fst_brk)));
 
-		/* Find out current end of memory */
-		if (snd_brk == (char*)(MORECORE_FAILURE)) {
-		    snd_brk = (char*)(AB_MORECORE(pid, 0));
-		    av->sbrked_mem += snd_brk - fst_brk - size;  // TODO what does this mean?
-		}
-	    }
+		unit_top = (mchunkptr)fst_brk;
 
-	    /* Adjust top based on results of second sbrk */
-	    //if (snd_brk != (char*)(MORECORE_FAILURE)) {
-//		av->top = (mchunkptr)aligned_brk;
-//		set_head(av->top, (snd_brk - aligned_brk + correction) | PREV_INUSE);
-//		av->sbrked_mem += correction;
-
-		unit_top = (mchunkptr)aligned_brk;
-		set_head(unit_top, size | PREV_INUSE);
-
-		//TODO add unit header
-
+		//add unit state
+		unit = unit_init_state(unit_top, (unsigned long)fst_brk, size, av);
+		assert(size == UNIT_SIZE);
+		list_insert_head(&(av->ustate_list), unit);
+		list_insert_head(&(get_abstate()->ustate_list), unit);
 		/*
 		   If not the first time through, we either have a
 		   gap due to foreign sbrk or a non-contiguous region.  Insert a
@@ -720,103 +571,92 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 		   two to make sizes and alignments work out.
 		   */
 
-//		if (old_size != 0) {
-		    /* Shrink old_top to insert fenceposts, keeping size a
-		       multiple of MALLOC_ALIGNMENT. We know there is at least
-		       enough space in old_top to do this.
-		       */
-		    unit_top_size = chunksize(unit_top);
-		    unit_top_size = (unit_top_size - 3*(sizeof(size_t))) & ~MALLOC_ALIGN_MASK;
-		    set_head(unit_top, unit_top_size | PREV_INUSE);
+		/* Shrink old_top to insert fenceposts, keeping size a
+		   multiple of MALLOC_ALIGNMENT. We know there is at least
+		   enough space in old_top to do this.
+		   */
+		unit_top_size = (size - 3*(sizeof(size_t))) & ~MALLOC_ALIGN_MASK;
+		set_head(unit_top, unit_top_size | PREV_INUSE);
 
-		    /*
-		       Note that the following assignments completely overwrite
-		       old_top when old_size was previously MINSIZE.  This is
-		       intentional. We need the fencepost, even if old_top otherwise gets
-		       lost.
-		       */
-		    chunk_at_offset(unit_top, unit_top_size          )->size =
+		/*
+		   Note that the following assignments completely overwrite
+		   old_top when old_size was previously MINSIZE.  This is
+		   intentional. We need the fencepost, even if old_top otherwise gets
+		   lost.
+		   */
+		chunk_at_offset(unit_top, unit_top_size)->size =
 			(sizeof(size_t))|PREV_INUSE;
 
-		    chunk_at_offset(unit_top, unit_top_size + (sizeof(size_t)))->size =
+		chunk_at_offset(unit_top, unit_top_size + (sizeof(size_t)))->size =
 			(sizeof(size_t))|PREV_INUSE;
 
-		    /* If possible, release the rest, suppressing trimming.  */
-//		    if (old_size >= MINSIZE) {
-//			size_t tt = av->trim_threshold;
-//			av->trim_threshold = (size_t)(-1);
-//			free(chunk2mem(old_top));
-//			av->trim_threshold = tt;
-//		    }
-//		}
-	    //}
-//	}
 
-	/* Update statistics */
-	sum = av->sbrked_mem;
-	if (sum > (unsigned long)(av->max_sbrked_mem))
-	    av->max_sbrked_mem = sum;
+		/* Update statistics */
+		sum = av->sbrked_mem;
+		if (sum > (unsigned long)(av->max_sbrked_mem))
+		    av->max_sbrked_mem = sum;
 
-	sum += av->mmapped_mem;
-	if (sum > (unsigned long)(av->max_total_mem))
-	    av->max_total_mem = sum;
+		sum += av->mmapped_mem;
+		if (sum > (unsigned long)(av->max_total_mem))
+		    av->max_total_mem = sum;
 
-	check_malloc_state();
+		check_malloc_state();
 
-	/* finally, do the allocation */
+		/* finally, do the allocation */
 
-	p = unit_top;
-	size = chunksize(p);
+		p = unit_top;
+		size = chunksize(p);
 
-	/* check that one of the above allocation paths succeeded */
-	if ((unsigned long)(size) >= (unsigned long)(nb + MINSIZE)) {
-		remainder_size = size - nb;
-		remainder = chunk_at_offset(p, nb);
-		unit_top = remainder;
+		/* check that one of the above allocation paths succeeded */
+		if ((unsigned long)(size) >= (unsigned long)(nb + MINSIZE)) {
+			remainder_size = size - nb;
+			remainder = chunk_at_offset(p, nb);
+			unit_top = remainder;
 
-
-		/* place remainder back to the topbin */		
-		bck = unit_tops(av);
-		fwd = bck->fd;
-
-		if (fwd != bck) {
-		/* if smaller than smallest, place first */
-			if ((unsigned long)(size) < 
-				(unsigned long)(bck->bk->size)) {
-				fwd = bck;
-				bck = bck->bk;
-			}
-			else if ((unsigned long)(size) >=
-				(unsigned long)(MINSIZE)) {
-
-			    /* maintain topbin in sorted order */
-				size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
-				while ((unsigned long)(size) < (unsigned long)(fwd->size))
-					fwd = fwd->fd;
-			        bck = fwd->bk;
-			}
-		}
-		remainder->bk = bck;
-		remainder->fd = fwd;
-		fwd->bk = remainder;
-		bck->fd = remainder;
-
-		set_head(p, nb | PREV_INUSE);
-		set_head(remainder, remainder_size | PREV_INUSE);
-		set_foot(remainder, remainder_size);
-		check_malloced_chunk(p, nb);
+			//update unit_top infomation in ustate
+			unit->unit_top = unit_top;
 		
-		//update protection for other threads
-		prot_update(pid, p, size, L);
+			/* place remainder back to the topbin */		
+			//bck = av->ustate_list;
+			//fwd = bck->fd;
 
-		return chunk2mem(p);
+			//if (fwd != bck) {
+			///* if smaller than smallest, place first */
+			//	if ((unsigned long)(size) < 
+			//		(unsigned long)(bck->bk->size)) {
+			//		fwd = bck;
+			//		bck = bck->bk;
+			//	}
+			//	else if ((unsigned long)(size) >=
+			//		(unsigned long)(MINSIZE)) {
+
+			//	    /* maintain topbin in sorted order */
+			//		size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
+			//		while ((unsigned long)(size) < (unsigned long)(fwd->size))
+			//			fwd = fwd->fd;
+			//	        bck = fwd->bk;
+			//	}
+			//}
+			//remainder->bk = bck;
+			//remainder->fd = fwd;
+			//fwd->bk = remainder;
+			//bck->fd = remainder;
+
+			set_head(p, nb | PREV_INUSE);
+			set_head(remainder, remainder_size | PREV_INUSE);
+			set_foot(remainder, remainder_size);
+			check_malloced_chunk(p, nb);
+		
+			//update protection for other threads
+			prot_update(pid, p, size, L);
+
+			return chunk2mem(p);
+		}
 	}
 
-    }
-
-    /* catch all failure paths */
-    errno = ENOMEM;
-    return 0;
+	/* catch all failure paths */
+	errno = ENOMEM;
+	return 0;
 }
 
 
@@ -873,38 +713,39 @@ static int __malloc_largebin_index(unsigned int sz)
 /* ------------------------------ ablib_malloc ------------------------------ */
 void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
 {
-    mstate av;
+	mstate av;
 
-    size_t nb;               /* normalized request size */
-    unsigned int    idx;              /* associated bin index */
-    mbinptr         bin;              /* associated bin */
-    mfastbinptr*    fb;               /* associated fastbin */
+	size_t nb;			/* normalized request size */
+	unsigned int	idx;		/* associated bin index */
+	mbinptr		bin;		/* associated bin */
+	mfastbinptr*	fb;		/* associated fastbin */
 
-    mchunkptr       victim;           /* inspected/selected chunk */
-    size_t size;             /* its size */
-    int             victim_index;     /* its bin index */
+	mchunkptr	victim;		/* inspected/selected chunk */
+	size_t size;			/* its size */
+	int		victim_index;	/* its bin index */
+	struct list_node	*victim_unit;
 
-    mchunkptr       remainder;        /* remainder from a split */
-    unsigned long    remainder_size;   /* its size */
+	mchunkptr	remainder;	/* remainder from a split */
+	unsigned long	remainder_size;	/* its size */
 
-    unsigned int    block;            /* bit map traverser */
-    unsigned int    bit;              /* bit map traverser */
-    unsigned int    map;              /* current word of binmap */
+	unsigned int	block;		/* bit map traverser */
+	unsigned int	bit;		/* bit map traverser */
+	unsigned int	map;		/* current word of binmap */
 
-    mchunkptr       fwd;              /* misc temp for linking */
-    mchunkptr       bck;              /* misc temp for linking */
-    void *          sysmem;
-    void *          retval;
+	mchunkptr	fwd;		/* misc temp for linking */
+	mchunkptr	bck;		/* misc temp for linking */
+	void *		sysmem;
+	void *		retval;
 
-    //AB_INFO("ablib_malloc called: arguments = (%d, %d, %lx, %lx)\n", pid, bytes, *(unsigned long *)L, (void *)L);
-    //get av
-    av = lookup_mstate_by_label(L);
+	//AB_INFO("ablib_malloc called: arguments = (%d, %d, %lx, %lx)\n", pid, bytes, *(unsigned long *)L, (void *)L);
+	//get av
+	av = lookup_mstate_by_label(L);
 
 #if !defined(__MALLOC_GLIBC_COMPAT__)
-    if (!bytes) {
-        __set_errno(ENOMEM);
-        return NULL;
-    }
+	if (!bytes) {
+	    __set_errno(ENOMEM);
+	    return NULL;
+	}
 #endif
 
     __MALLOC_LOCK;
@@ -1224,58 +1065,63 @@ use_unit_top:
        reason for ensuring it exists is that we may need MINSIZE space
        to put in fenceposts in sysmalloc.)
        */
-    victim = unit_tops(av);   
-    while ( (victim = victim->bk) != unit_tops(av) ) {
-	size = chunksize(victim);
-	if ((unsigned long)(size) >= (unsigned long)(nb)) {
-		remainder_size = size - nb;
-		unlink(victim, bck, fwd);
+    if ( (&(av->ustate_list))->num != 0) {
+	    victim_unit = (&(av->ustate_list))->tail;   
+	    do {
+		victim = get_ustate(victim_unit)->unit_top;
+		size = chunksize(victim);
+		if ((unsigned long)(size) >= (unsigned long)(nb)) {
+			remainder_size = size - nb;
+			//unlink(victim, bck, fwd);
 
-		/* Exhaust */
-		if (remainder_size < MINSIZE)  {
-		    set_inuse_bit_at_offset(victim, size);
-		}
-		/* Split */
-		else {
-			remainder = chunk_at_offset(victim, nb);
-			/* place remainder back to the topbin */		
-			bck = unit_tops(av);
-			fwd = bck->fd;
+			/* Exhaust */
+			if (remainder_size < MINSIZE)  {
+			    set_inuse_bit_at_offset(victim, size);
+			}
+			/* Split */
+			else {
+				remainder = chunk_at_offset(victim, nb);
+				//update top_unit information in ustate
+				get_ustate(victim_unit)->unit_top = remainder;
 
-			if (fwd != bck) {
-				/* if smaller than smallest, place first */
-				if ((unsigned long)(size) < 
-					(unsigned long)(bck->bk->size)) {
-					fwd = bck;
-					bck = bck->bk;
-				}
-				else if ((unsigned long)(size) >=
-					(unsigned long)(MINSIZE)) {
+				/* place remainder back to the topbin */		
+				//bck = unit_tops(av);
+				//fwd = bck->fd;
 
-					/* maintain topbin in sorted order */
-					size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
-					while ((unsigned long)(size) < (unsigned long)(fwd->size))
-						fwd = fwd->fd;
-					bck = fwd->bk;
-				}
+				//if (fwd != bck) {
+				//	/* if smaller than smallest, place first */
+				//	if ((unsigned long)(size) < 
+				//		(unsigned long)(bck->bk->size)) {
+				//		fwd = bck;
+				//		bck = bck->bk;
+				//	}
+				//	else if ((unsigned long)(size) >=
+				//		(unsigned long)(MINSIZE)) {
+
+				//		/* maintain topbin in sorted order */
+				//		size |= PREV_INUSE; /* Or with inuse bit to speed comparisons */
+				//		while ((unsigned long)(size) < (unsigned long)(fwd->size))
+				//			fwd = fwd->fd;
+				//		bck = fwd->bk;
+				//	}
+				//}
+
+				//remainder->bk = bck;
+				//remainder->fd = fwd;
+				//fwd->bk = remainder;
+				//bck->fd = remainder;
+
+				set_head(victim, nb | PREV_INUSE);
+				set_head(remainder, remainder_size | PREV_INUSE);
+				set_foot(remainder, remainder_size);
 			}
 
-			remainder->bk = bck;
-			remainder->fd = fwd;
-			fwd->bk = remainder;
-			bck->fd = remainder;
-
-			set_head(victim, nb | PREV_INUSE);
-			set_head(remainder, remainder_size | PREV_INUSE);
-			set_foot(remainder, remainder_size);
+			check_malloced_chunk(victim, nb);
+			retval = chunk2mem(victim);
+			goto DONE;
 		}
-
-		check_malloced_chunk(victim, nb);
-		retval = chunk2mem(victim);
-		goto DONE;
-	}
+	    } while ( (victim_unit = victim_unit->prev) != NULL );
     }
-
     //AB_DBG("before call __malloc_alloc\n");
     /* If no space in top, relay to handle system-dependent cases */
     sysmem = __malloc_alloc(pid, nb, av, L);
@@ -1303,24 +1149,33 @@ static bool _cmp_mstate(const void *key, const void* data)
 
 mstate lookup_mstate_by_label(label_t L)
 {
-	return (mstate)linked_list_lookup(&(get_abheap_state()->malloc_state_list),
+	return (mstate)linked_list_lookup(&(get_abstate()->mstate_list),
 					   L, 
 					   _cmp_mstate);
 }
 
-//locate the unit header using an address 
-struct unit_header *get_unit_header(void *ptr)
+//locate ustate using memory address
+ustate lookup_ustate_by_mem(void *ptr)
 {
-	return (struct unit_header *)((unsigned long)ptr & UNIT_ALIGN_MASK);
+	struct list_node *victim_unit;
+	ustate unit;
+
+	victim_unit = (&(get_abstate()->ustate_list))->tail;
+	do {
+		unit = get_ustate(victim_unit);
+		if ((unsigned long)ptr >= unit->addr && 
+			(unsigned long)ptr < unit->addr + unit->length)
+			break;
+	
+	} while ( (victim_unit = victim_unit->prev) != &(get_abstate()->ustate_list) );
+
+	return unit;
 }
 
 //look up mstate by memory address, called by ablib_free()
 mstate lookup_mstate_by_mem(void *ptr)
 {
-	struct unit_header *hdr;
-	
-	hdr = get_unit_header(ptr);
-	return (hdr->unit_av);
+	return lookup_ustate_by_mem(ptr);
 }
 
 /* ----------------------- protection update  ----------------------- */

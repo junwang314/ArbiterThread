@@ -160,9 +160,37 @@ static void handle_free_rpc(struct arbiter_thread *abt,
 			    struct abt_request *req, 
 			    struct rpc_header *hdr)
 {
+	void *ptr;
+	pid_t pid;
+	ustate unit;
+	label_t L1, L2;
+	own_t O1;
 	struct abt_reply_header rply;
 	struct abreq_free *freereq = (struct abreq_free *)hdr;
 	AB_INFO("Processing free, addr = %lx\n", (unsigned long)freereq->addr);
+
+	pid = (pid_t)(c->pid);
+	*(uint64_t *)L1 = c->label;
+	*(uint64_t *)O1 = c->ownership;
+
+	ptr = (void *)(freereq->addr);
+	unit = lookup_ustate_by_mem(ptr);
+	memcpy(L2, unit->unit_av->label, sizeof(label_t));
+	
+	//label check	
+	if ( check_label(L1, O1, L2, NULL) ) {
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+
+		//report voilatioin
+		AB_MSG("VOILATION: malloc voilation!\n");
+	
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+	
+	ablib_free(pid, ptr);
+	
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
 		
@@ -320,10 +348,6 @@ int main()
 		AB_DBG("child pid: %d\n", pid);
 		//init client metadata @ arbiter side
 		init_first_child(pid);
-		//FIXME: to embed this part in allocator
-		mmap((void *) addr, 30*1024*4, PROT_READ|PROT_WRITE, 
-			MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
-		touch_mem((void *)addr, 30*1024*4);
 		//server routine
 		server_loop(&arbiter);
 		return 0;

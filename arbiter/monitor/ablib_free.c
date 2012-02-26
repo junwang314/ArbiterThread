@@ -35,7 +35,7 @@ static int __malloc_trim(size_t pad, mstate av)
     size_t pagesz;
 
     pagesz = av->pagesize;
-    top_size = chunksize(get_abheap_state()->ab_top);
+    top_size = chunksize(get_abstate()->ab_top);
 
     /* Release in pagesize units, keeping at least one page */
     extra = ((top_size - pad - MINSIZE + (pagesz-1)) / pagesz - 1) * pagesz;
@@ -46,8 +46,8 @@ static int __malloc_trim(size_t pad, mstate av)
 	   Only proceed if end of memory is where we last set it.
 	   This avoids problems if there were foreign sbrk calls.
 	   */
-	current_brk = (char*)(MORECORE(0));  //TODO add sbrk(), i.e. AB_MORECORE
-	if (current_brk == (char*)(get_abheap_state()->ab_top) + top_size) {
+	current_brk = (char*)(AB_MORECORE(0));
+	if (current_brk == (char*)(get_abstate()->ab_top) + top_size) {
 
 	    /*
 	       Attempt to release memory. We ignore MORECORE return value,
@@ -59,8 +59,8 @@ static int __malloc_trim(size_t pad, mstate av)
 	       some downstream failure.)
 	       */
 
-	    MORECORE(-extra);
-	    new_brk = (char*)(MORECORE(0));
+	    AB_MORECORE(-extra);
+	    new_brk = (char*)(AB_MORECORE(0));
 
 	    if (new_brk != (char*)MORECORE_FAILURE) {
 		released = (long)(current_brk - new_brk);
@@ -68,7 +68,7 @@ static int __malloc_trim(size_t pad, mstate av)
 		if (released != 0) {
 		    /* Success. Adjust top. */
 		    av->sbrked_mem -= released;
-		    set_head(get_abheap_state()->ab_top, (top_size - released) | PREV_INUSE);
+		    set_head(get_abstate()->ab_top, (top_size - released) | PREV_INUSE);
 		    check_malloc_state();
 		    return 1;
 		}
@@ -144,11 +144,11 @@ static void malloc_init_state(mstate av)
     set_max_fast(av, DEFAULT_MXFAST);
 
     //av->top            = initial_top(av);
-    unit_tops(av)->fd = unit_tops(av)->bk = unit_tops(av); //init av->unit_top
+    init_linked_list(&(av->ustate_list));     //init ustate list
     av->pagesize       = malloc_getpagesize;
     
     // add new mstate to the mstate list
-    list_insert_tail(&(get_abheap_state()->malloc_state_list), (void *)av);
+    list_insert_tail(&(get_abstate()->mstate_list), (void *)av);
 }
 
 
@@ -171,7 +171,7 @@ static void malloc_init_state(mstate av)
   malloc anyway, it turns out to be the perfect place to trigger
   initialization code.
 */
-void attribute_hidden __malloc_consolidate(mstate av)
+void attribute_hidden __malloc_consolidate(mstate av, ustate unit)
 {
     mfastbinptr*    fb;                 /* current fastbin being consolidated */
     mfastbinptr*    maxfb;              /* last fastbin (for loop control) */
@@ -229,7 +229,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 			unlink(p, bck, fwd);
 		    }
 
-		    if (nextchunk != get_unit_header(p)->unit_top) {
+		    if (nextchunk != unit->unit_top) {
 			nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
 			set_head(nextchunk, nextsize);
 
@@ -251,7 +251,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 		    else {
 			size += nextsize;
 			set_head(p, size | PREV_INUSE);
-			get_unit_header(p)->unit_top = p;
+			unit->unit_top = p;
 		    }
 
 		} while ( (p = nextp) != 0);
@@ -260,158 +260,156 @@ void attribute_hidden __malloc_consolidate(mstate av)
 	} while (fb++ != maxfb);
     }
     else {
-    	if (get_abheap_state()->malloc_state_list.num == 0) { //initialize mstate list
-    		init_linked_list(&(get_abheap_state()->malloc_state_list));
+    	if (get_abstate()->mstate_list.num == 0) { //initialize mstate list
+    		init_linked_list(&(get_abstate()->mstate_list));
+		//allocate channel space
+		mmap((void *) CHANNEL_ADDR, CHANNEL_SIZE, PROT_READ|PROT_WRITE, 
+			MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
+		touch_mem((void *)CHANNEL_ADDR, CHANNEL_SIZE);
+		get_abstate()->ab_top = CHANNEL_ADDR + CHANNEL_SIZE;
     	}
 	malloc_init_state(av);
 	check_malloc_state();
     }
 }
 
-#if 0
+#if 1
 /* ------------------------------ free ------------------------------ */
 void ablib_free(pid_t pid, void* mem)
 {
-    mstate av;
+	mstate		av;
+	ustate		unit;
 
-    mchunkptr       p;           /* chunk corresponding to mem */
-    size_t size;        /* its size */
-    mfastbinptr*    fb;          /* associated fastbin */
-    mchunkptr       nextchunk;   /* next contiguous chunk */
-    size_t nextsize;    /* its size */
-    int             nextinuse;   /* true if nextchunk is used */
-    size_t prevsize;    /* size of previous contiguous chunk */
-    mchunkptr       bck;         /* misc temp for linking */
-    mchunkptr       fwd;         /* misc temp for linking */
+	mchunkptr	p;		/* chunk corresponding to mem */
+	size_t		size;		/* its size */
+	mfastbinptr	*fb;		/* associated fastbin */
+	mchunkptr	nextchunk;	/* next contiguous chunk */
+	size_t		nextsize;	/* its size */
+	int		nextinuse;	/* true if nextchunk is used */
+	size_t prevsize;		/* size of previous contiguous chunk */
+	mchunkptr	bck;		/* misc temp for linking */
+	mchunkptr	fwd;		/* misc temp for linking */
 
-    /* free(0) has no effect */
-    if (mem == NULL)
-	return;
+	/* ablib_free(0) has no effect */
+	if (mem == NULL)
+		return;
 
-    __MALLOC_LOCK;
-    av = lookup_mstate_by_mem(mem);
-    p = mem2chunk(mem);
-    size = chunksize(p);
+	__MALLOC_LOCK;
+	unit = lookup_ustate_by_mem(mem);
+	av = unit->unit_av;
+	p = mem2chunk(mem);
+	size = chunksize(p);
 
-    check_inuse_chunk(p);
+	check_inuse_chunk(p);
 
-    /*
-       If eligible, place chunk on a fastbin so it can be found
-       and used quickly in malloc.
-       */
+	/* If eligible, place chunk on a fastbin so it can be found
+   	   and used quickly in malloc. */
 
-    if ((unsigned long)(size) <= (unsigned long)(av->max_fast)
+	if ((unsigned long)(size) <= (unsigned long)(av->max_fast)
 
 #if TRIM_FASTBINS
 	    /* If TRIM_FASTBINS set, don't place chunks
 	       bordering top into fastbins */
 	    && (chunk_at_offset(p, size) != av->top)
 #endif
-       ) {
+	) {
 
-	set_fastchunks(av);
-	fb = &(av->fastbins[fastbin_index(size)]);
-	p->fd = *fb;
-	*fb = p;
-    }
-
-    /*
-       Consolidate other non-mmapped chunks as they arrive.
-       */
-
-    else if (!chunk_is_mmapped(p)) {
-	set_anychunks(av);
-
-	nextchunk = chunk_at_offset(p, size);
-	nextsize = chunksize(nextchunk);
-
-	/* consolidate backward */
-	if (!prev_inuse(p)) {
-	    prevsize = p->prev_size;
-	    size += prevsize;
-	    p = chunk_at_offset(p, -((long) prevsize));
-	    unlink(p, bck, fwd);
+		set_fastchunks(av);
+		fb = &(av->fastbins[fastbin_index(size)]);
+		p->fd = *fb;
+		*fb = p;
 	}
 
-	if (nextchunk != av->top) {
-	    /* get and clear inuse bit */
-	    nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
-	    set_head(nextchunk, nextsize);
+	/* Consolidate other non-mmapped chunks as they arrive. */
 
-	    /* consolidate forward */
-	    if (!nextinuse) {
-		unlink(nextchunk, bck, fwd);
-		size += nextsize;
-	    }
+	else if (!chunk_is_mmapped(p)) {
+		set_anychunks(av);
 
-	    /*
-	       Place the chunk in unsorted chunk list. Chunks are
-	       not placed into regular bins until after they have
-	       been given one chance to be used in malloc.
-	       */
+		nextchunk = chunk_at_offset(p, size);
+		nextsize = chunksize(nextchunk);
 
-	    bck = unsorted_chunks(av);
-	    fwd = bck->fd;
-	    p->bk = bck;
-	    p->fd = fwd;
-	    bck->fd = p;
-	    fwd->bk = p;
+		/* consolidate backward */
+		if (!prev_inuse(p)) {
+			prevsize = p->prev_size;
+			size += prevsize;
+			p = chunk_at_offset(p, -((long) prevsize));
+			unlink(p, bck, fwd);
+		}
 
-	    set_head(p, size | PREV_INUSE);
-	    set_foot(p, size);
+		if (nextchunk != unit->unit_top) {
+			/* get and clear inuse bit */
+			nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
+			set_head(nextchunk, nextsize);
 
-	    check_free_chunk(p);
+			/* consolidate forward */
+			if (!nextinuse) {
+				unlink(nextchunk, bck, fwd);
+				size += nextsize;
+			}
+
+			/* Place the chunk in unsorted chunk list. Chunks are
+			   not placed into regular bins until after they have
+			   been given one chance to be used in malloc. */
+
+			bck = unsorted_chunks(av);
+			fwd = bck->fd;
+			p->bk = bck;
+			p->fd = fwd;
+			bck->fd = p;
+			fwd->bk = p;
+
+			set_head(p, size | PREV_INUSE);	//TODO: how to decide PREV_INUSE?
+			set_foot(p, size);
+
+			check_free_chunk(p);
+		}
+		/* If the chunk borders the current high end of memory,
+		   consolidate into top */
+		else {
+			size += nextsize;
+			set_head(p, size | PREV_INUSE);
+			unit->unit_top = p;
+			check_chunk(p);
+		}
+
+		/*
+		   If freeing a large space, consolidate possibly-surrounding
+		   chunks. Then, if the total unused topmost memory exceeds
+		   trim threshold, ask malloc_trim to reduce top.
+
+		   Unless max_fast is 0, we don't know if there are fastbins
+		   bordering top, so we cannot tell for sure whether threshold
+		   has been reached unless fastbins are consolidated.  But we
+		   don't want to consolidate on each free.  As a compromise,
+		   consolidation is performed if 
+		   FASTBIN_CONSOLIDATION_THRESHOLD is reached.
+		   */
+
+		if ((unsigned long)(size) >= FASTBIN_CONSOLIDATION_THRESHOLD) {
+			if (have_fastchunks(av))
+				__malloc_consolidate(av, unit);
+
+			//if ((unsigned long)(chunksize(unit->unit_top)) >=
+			//	(unsigned long)(av->trim_threshold))
+			//	__malloc_trim(av->top_pad, av);
+		}
+
 	}
-
 	/*
-	   If the chunk borders the current high end of memory,
-	   consolidate into top
+	   If the chunk was allocated via mmap, release via munmap()
+	   Note that if HAVE_MMAP is false but chunk_is_mmapped is
+	   true, then user must have overwritten memory. There's nothing
+	   we can do to catch this error unless DEBUG is set, in which case
+	   check_inuse_chunk (above) will have triggered error.
 	   */
 
 	else {
-	    size += nextsize;
-	    set_head(p, size | PREV_INUSE);
-	    av->top = p;
-	    check_chunk(p);
+		size_t offset = p->prev_size;   //set during mmap in __malloc_alloc
+		av->n_mmaps--;
+		av->mmapped_mem -= (size + offset);
+		absys_munmap(pid, (char*)p - offset, size + offset);
 	}
-
-	/*
-	   If freeing a large space, consolidate possibly-surrounding
-	   chunks. Then, if the total unused topmost memory exceeds trim
-	   threshold, ask malloc_trim to reduce top.
-
-	   Unless max_fast is 0, we don't know if there are fastbins
-	   bordering top, so we cannot tell for sure whether threshold
-	   has been reached unless fastbins are consolidated.  But we
-	   don't want to consolidate on each free.  As a compromise,
-	   consolidation is performed if FASTBIN_CONSOLIDATION_THRESHOLD
-	   is reached.
-	   */
-
-	if ((unsigned long)(size) >= FASTBIN_CONSOLIDATION_THRESHOLD) {
-	    if (have_fastchunks(av))
-		__malloc_consolidate(av);
-
-	    if ((unsigned long)(chunksize(av->top)) >=
-		    (unsigned long)(av->trim_threshold))
-		__malloc_trim(av->top_pad, av);
-	}
-
-    }
-    /*
-       If the chunk was allocated via mmap, release via munmap()
-       Note that if HAVE_MMAP is false but chunk_is_mmapped is
-       true, then user must have overwritten memory. There's nothing
-       we can do to catch this error unless DEBUG is set, in which case
-       check_inuse_chunk (above) will have triggered error.
-       */
-
-    else {
-	size_t offset = p->prev_size;
-	av->n_mmaps--;
-	av->mmapped_mem -= (size + offset);
-	munmap((char*)p - offset, size + offset);
-    }
-    __MALLOC_UNLOCK;
+	
+	__MALLOC_UNLOCK;
 }
 #endif

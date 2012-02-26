@@ -164,12 +164,19 @@ int client_test()
 //	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 //	printf("child 0 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ab_malloc(7*1024*4, L1);
+	addr = (unsigned long)ab_malloc(5*1024*4, L2);
 	printf("child A malloc: %lx\n", addr);
+	
+	for (i = 1; i < 10; i++) {
+		addr = (unsigned long)ab_malloc(400, L2);
+		printf("child A malloc: %lx\n", addr);
+	
+		ab_free((void *)addr);
+		printf("child A free: %lx\n", addr);
+	}
 	
 	addr = (unsigned long)ab_malloc(4, L2);
 	printf("child A malloc: %lx\n", addr);
-	
 	//addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
 	//printf("child 0 malloc: %lx\n", addr);
 	

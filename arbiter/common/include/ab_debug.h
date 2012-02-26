@@ -6,8 +6,8 @@
 /********** debug **********/
 
 #define AB_VERBOSE_TAG 1
-#define AB_INFO_TAG   0
-#define AB_DEBUG_TAG  0
+#define AB_INFO_TAG   1
+#define AB_DEBUG_TAG  1
 
 #define AB_MSG(...)  if((AB_VERBOSE_TAG)) {printf(__VA_ARGS__);}
 #define AB_INFO(...) if((AB_INFO_TAG)) {printf(__VA_ARGS__);}
