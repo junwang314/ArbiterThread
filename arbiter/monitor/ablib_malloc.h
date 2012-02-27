@@ -973,7 +973,7 @@ typedef struct malloc_state *mstate;
 
 /* External internal utilities operating on mstates */
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
-//void attribute_hidden __malloc_consolidate(mstate, ustate);  TODO: ask Xi
+void attribute_hidden __malloc_consolidate(mstate);  //TODO: ask Xi
 
 
 /* Debugging support */

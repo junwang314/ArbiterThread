@@ -171,7 +171,7 @@ static void malloc_init_state(mstate av)
   malloc anyway, it turns out to be the perfect place to trigger
   initialization code.
 */
-void attribute_hidden __malloc_consolidate(mstate av, ustate unit)
+void attribute_hidden __malloc_consolidate(mstate av)
 {
     mfastbinptr*    fb;                 /* current fastbin being consolidated */
     mfastbinptr*    maxfb;              /* last fastbin (for loop control) */
@@ -179,6 +179,7 @@ void attribute_hidden __malloc_consolidate(mstate av, ustate unit)
     mchunkptr       nextp;              /* next chunk to consolidate */
     mchunkptr       unsorted_bin;       /* bin header */
     mchunkptr       first_unsorted;     /* chunk to link to */
+    ustate	    unit;		/*  */
 
     /* These have same use as in free() */
     mchunkptr       nextchunk;
@@ -228,7 +229,8 @@ void attribute_hidden __malloc_consolidate(mstate av, ustate unit)
 			p = chunk_at_offset(p, -((long) prevsize));
 			unlink(p, bck, fwd);
 		    }
-
+		    
+		    unit = lookup_ustate_by_mem((void*)p);
 		    if (nextchunk != unit->unit_top) {
 			nextinuse = inuse_bit_at_offset(nextchunk, nextsize);
 			set_head(nextchunk, nextsize);
@@ -387,7 +389,7 @@ void ablib_free(pid_t pid, void* mem)
 
 		if ((unsigned long)(size) >= FASTBIN_CONSOLIDATION_THRESHOLD) {
 			if (have_fastchunks(av))
-				__malloc_consolidate(av, unit);
+				__malloc_consolidate(av);
 
 			//if ((unsigned long)(chunksize(unit->unit_top)) >=
 			//	(unsigned long)(av->trim_threshold))

@@ -167,12 +167,12 @@ int client_test()
 	addr = (unsigned long)ab_malloc(5*1024*4, L2);
 	printf("child A malloc: %lx\n", addr);
 	
-	for (i = 1; i < 10; i++) {
-		addr = (unsigned long)ab_malloc(400, L2);
-		printf("child A malloc: %lx\n", addr);
+	for (i = 1; i < 10*1024*4; i = i + 100) {
+		addr = (unsigned long)ab_malloc(i, L2);
+		printf("child A malloc: %lx, size = %d\n", addr, i);
 	
 		ab_free((void *)addr);
-		printf("child A free: %lx\n", addr);
+		//printf("child A free: %lx\n", addr);
 	}
 	
 	addr = (unsigned long)ab_malloc(4, L2);

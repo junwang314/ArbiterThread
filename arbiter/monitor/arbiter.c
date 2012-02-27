@@ -174,8 +174,13 @@ static void handle_free_rpc(struct arbiter_thread *abt,
 	*(uint64_t *)O1 = c->ownership;
 
 	ptr = (void *)(freereq->addr);
-	unit = lookup_ustate_by_mem(ptr);
-	memcpy(L2, unit->unit_av->label, sizeof(label_t));
+	if (ptr != NULL) {
+		unit = lookup_ustate_by_mem(ptr);
+		memcpy(L2, unit->unit_av->label, sizeof(label_t));
+	}
+	else {
+		*(uint64_t *)L2 = c->label; //in order to pass label check
+	}
 	
 	//label check	
 	if ( check_label(L1, O1, L2, NULL) ) {
