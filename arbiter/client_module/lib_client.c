@@ -69,7 +69,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		    sizeof(cli_state->abt_addr));
 	       
 
-	//AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
+	AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
 	assert(rc == hdr->msg_len);
 
 	for(;;) {

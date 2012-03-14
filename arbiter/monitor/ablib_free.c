@@ -268,7 +268,7 @@ void attribute_hidden __malloc_consolidate(mstate av)
 		mmap((void *) CHANNEL_ADDR, CHANNEL_SIZE, PROT_READ|PROT_WRITE, 
 			MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);	
 		touch_mem((void *)CHANNEL_ADDR, CHANNEL_SIZE);
-		get_abstate()->ab_top = CHANNEL_ADDR + CHANNEL_SIZE;
+		get_abstate()->ab_top = (mchunkptr)(CHANNEL_ADDR + CHANNEL_SIZE);
     	}
 	malloc_init_state(av);
 	check_malloc_state();
@@ -410,6 +410,21 @@ void ablib_free(pid_t pid, void* mem)
 		av->n_mmaps--;
 		av->mmapped_mem -= (size + offset);
 		absys_munmap(pid, (char*)p - offset, size + offset);
+		munmap((char*)p - offset, size + offset);
+		
+		struct list_node *node;
+		void *data;
+		
+		//delete list node in mstate
+		node = linked_list_locate(&(av->ustate_list), (void*)unit);
+		data = list_del_entry(&(av->ustate_list), node);
+		assert(data == (void*)unit);
+		//delete list node in abheap_state
+		node = linked_list_locate(&(get_abstate()->ustate_list), (void*)unit);
+		data = list_del_entry(&(get_abstate()->ustate_list), node);
+		assert(data == (void*)unit);
+		//free ustate
+		free((void*)unit);
 	}
 	
 	__MALLOC_UNLOCK;

@@ -447,6 +447,11 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 				assert(ab_mm == (char*)p);
 
 				if (ab_mm != (char*)(MORECORE_FAILURE)) {
+					//add unit state
+					unit = unit_init_state((mchunkptr)mm, (unsigned long)mm, size, av);
+					list_insert_head(&(av->ustate_list), unit);
+					list_insert_head(&(get_abstate()->ustate_list), unit);
+
 					/* update statistics */
 
 					if (++av->n_mmaps > av->max_n_mmaps)
