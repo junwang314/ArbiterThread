@@ -77,11 +77,14 @@ include $(AB_ROOT)/common/make.in
 $(BUILD)/arbiter:$(ARBITER_OBJS)
 	$(CC) $^ -o $@
 
-$(BUILD)/test:$(ABTEST_OBJS)
+$(BUILD)/test:$(ABTEST_OBJS) 
 	$(CC) $^ -o $@
 
 $(BUILD)/label_test:$(LABELTEST_OBJS)
 	$(CC) $^ -o $@
+	
+arbiter:$(BUILD) $(BUILD)/arbiter
+	
 
 run:$(BUILD)/arbiter
 	$^

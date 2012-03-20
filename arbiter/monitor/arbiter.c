@@ -99,8 +99,9 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	//AB_DBG("new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
 	//	c_new->pid, c_new->label, c_new->ownership);
 	
-	//TODO set up page tables for existing allocated memory
-			
+	//set up or update page tables for existing allocated memory
+	malloc_update(c_new);
+	
 	rply.abt_reply_magic = ABT_RPC_MAGIC;
 	rply.msg_len = sizeof(rply);
 	rply.return_val = 0; //0 indicate success

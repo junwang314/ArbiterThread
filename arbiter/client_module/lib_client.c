@@ -143,11 +143,13 @@ pid_t ab_fork(label_t L, own_t O)
 	}
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
+		AB_DBG("set %d as special\n", getpid());
 		//TODO check with Xi: 
 		//correct or not? (only one instance of abrpc_client_state?)
 		init_client_state(L, O);
 	}
 	if (pid > 0){ //parent thread
+		sleep(1);
 		//prepare the header
 		req.hdr.abt_magic = ABT_RPC_MAGIC;
 		req.hdr.msg_len = sizeof(req);
@@ -165,8 +167,9 @@ pid_t ab_fork(label_t L, own_t O)
 		if (rply.return_val) //arbiter failed to register 
 			return -1;
 
-		return pid;
+		//return pid;
 	}
+	return pid;
 }
 
 void ab_free(void *ptr)

@@ -1172,19 +1172,18 @@ ustate lookup_ustate_by_mem(void *ptr)
 			(unsigned long)ptr < unit->addr + unit->length)
 			break;
 	
-	} while ( (victim_unit = victim_unit->prev) != &(get_abstate()->ustate_list) );
+	} while ( (victim_unit = victim_unit->prev) != (void *)&(get_abstate()->ustate_list) );
 
 	return unit;
 }
 
 //look up mstate by memory address, called by ablib_free()
-mstate lookup_mstate_by_mem(void *ptr)
+ustate lookup_mstate_by_mem(void *ptr)
 {
-	return lookup_ustate_by_mem(ptr);
+	return (ustate)lookup_ustate_by_mem(ptr);
 }
 
 /* ----------------------- protection update  ----------------------- */
-#ifndef __TEST_MALLOC_ONLY_
 // update protection for other thread according to label comparision 
 static void prot_update(pid_t pid, void *p, long size, label_t L)
 {
@@ -1232,4 +1231,48 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 		absys_mprotect(pid_tmp, p, size, prot);
 	}
 }
-#endif
+
+/* ----------------------- malloc makeup ----------------------- */
+//set up existing memory mappings on channel heap for newly created process
+void malloc_update(struct client_desc *c_new)
+{
+	pid_t pid;
+	label_t L, L_tmp;
+	own_t O;
+	struct linked_list *list; 
+	struct list_node *ptr;
+	ustate unit;
+	unsigned long addr;
+	size_t length;
+	int prot;
+	int pv;
+
+	pid = c_new->pid;
+	*(uint64_t *)L = c_new->label;
+	*(uint64_t *)O = c_new->ownership;
+	
+	list = &(get_abstate()->ustate_list);
+
+	for (ptr = list->head; ptr != NULL; ptr = ptr->next) {
+		unit = ptr->data;
+		memcpy(L_tmp, unit->unit_av->label, sizeof(label_t));
+		addr = unit->addr;
+		length = unit->length;
+		
+		pv = (int) check_mem_prot(L, O, L_tmp);
+		//AB_DBG("check_mem_prot returns: %d\n", pv);
+		switch(pv) {
+			case PROT_N: prot = PROT_NONE; break;		
+			case PROT_R: prot = PROT_READ; break;		
+			case PROT_RW: prot = PROT_READ | PROT_WRITE; break;
+			default: prot = PROT_NONE;
+		}
+		//set protection on page table
+		AB_MMAP(pid, (void *)addr, length, prot); //TODO: ask Xi: what should absys_mmap do?
+		AB_DBG("AB_MMAP argument=(%d, %lx, %lx, %d)\n", pid, addr, length, prot);
+		//AB_DBG("absys_maprotect argument=(%d, %lx, %lx, %d)\n",pid, addr, length, prot);
+		//absys_mprotect(pid, addr, length, prot);
+				
+	}
+}
+

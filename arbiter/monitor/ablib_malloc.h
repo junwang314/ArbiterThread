@@ -1121,12 +1121,10 @@ void ablib_free(pid_t pid, void* mem);
 
 void *ablib_sbrk (pid_t pid, int increment);
 
-//#define __TEST_MALLOC_ONLY_
-#ifndef __TEST_MALLOC_ONLY_
 static void prot_update(pid_t pid, void *p, long size, label_t L);
-#else
-#define prot_update(pid, p, size, L)
-#endif
+
+void malloc_update(struct client_desc *c_new);
+
 /* ------------------------------- Misc  ---------------------------- */
 
 //touch the allocated memory so that physical pages are mapped to arbiter

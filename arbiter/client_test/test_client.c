@@ -36,8 +36,8 @@ static void child_func(unsigned long addr_to_map, label_t L1, label_t L2, int i)
 
 	if (i == 0) {
 #ifndef DEMO
-		addr = (unsigned long)ab_malloc(4, L1);
-		printf("child B malloc: %lx\n", addr);
+		//addr = (unsigned long)ab_malloc(4, L1);
+		//printf("child B malloc: %lx\n", addr);
 #endif
 #ifdef DEMO
 		//child B initialize data
@@ -138,6 +138,9 @@ int client_test()
         label_t L2 = {ar};
 	own_t O = {};
 	
+	addr = (unsigned long)ab_malloc(1*1024*4, L1);
+	printf("child A malloc: %lx\n", addr);
+
 	addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0)
@@ -158,15 +161,15 @@ int client_test()
 		}		
 	}
 	//wait some time for all the child to start
-	sleep(5);
+	//sleep(5);
 
 	// test code for ablib_brk()
 //	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 //	printf("child 0 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ab_malloc(11*1024*4, L2);
-	printf("child A malloc: %lx\n", addr);
-	ab_free((void *)addr);
+//	addr = (unsigned long)ab_malloc(1*1024*4, L2);
+//	printf("child A malloc: %lx\n", addr);
+	//ab_free((void *)addr);
 /*	for (i = 1; i < 100*1024*4; i = i + 100) {
 		addr = (unsigned long)ab_malloc(i%(50*1024*4), L2);
 		printf("child A malloc: %lx, size = %d\n", addr, i%(50*1024*4));
