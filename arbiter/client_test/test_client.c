@@ -12,7 +12,7 @@
 #include <lib_client.h>
 
 //number of child thread
-#define NUM_THREADS 3
+#define NUM_THREADS 4
 
 //DEMO
 //#define DEMO
@@ -141,6 +141,10 @@ int client_test()
 	addr = (unsigned long)ab_malloc(1*1024*4, L1);
 	printf("child A malloc: %lx\n", addr);
 
+	// test code for get_ownership()
+	own_t O_self;
+	get_ownership(O_self);
+	
 	addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0)
@@ -149,6 +153,8 @@ int client_test()
 			pid[i] = ab_fork(L2, O);
 		if (i == 2)
 			pid[i] = ab_fork((label_t){}, (own_t){});
+		if (i == 3)
+			pid[i] = ab_fork((label_t){}, O_self);
 		if (pid[i] < 0) {
 			perror("thread cannot be created.\n");
 			exit(0);
@@ -191,6 +197,12 @@ int client_test()
 	
 	//addr = (unsigned long)ablib_sbrk(pid[1], 0);
 	//printf("child 1 sbrk: %lx\n", addr);
+
+	// test code for get_label()
+	label_t L_self;
+	get_label(L_self);
+	addr = (unsigned long)ab_malloc(4, L_self);
+	printf("child A malloc: %lx\n", addr);
 
 	while(1) {
 		wpid = waitpid(-1, &status, 0);

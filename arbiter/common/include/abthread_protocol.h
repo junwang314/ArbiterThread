@@ -11,7 +11,9 @@ enum abt_opcode {
 	ABT_FORK,
 	ABT_MALLOC,
 	ABT_FREE,
-	ABT_CREATE_CAT
+	ABT_CREATE_CAT,
+	ABT_GET_LABEL,
+	ABT_GET_OWNERSHIP
 	//more to add...
 };
 
@@ -31,6 +33,8 @@ struct abt_reply_header {
 	uint32_t msg_len;
 	//32bit return value
 	uint32_t return_val;
+	// TODO ask Xi: ?
+	uint64_t return_val_64;
 };
 
 //socket opened by monitor
@@ -65,8 +69,13 @@ struct abreq_create_category {
 	uint64_t label;
 };
 
+struct abreq_label {
+	struct rpc_header hdr;
+};
 
-
+struct abreq_ownership {
+	struct rpc_header hdr;
+};
 
 
 #endif //_ABTHREAD_PROTOCAL_H

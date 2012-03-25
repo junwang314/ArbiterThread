@@ -155,7 +155,6 @@ static void handle_malloc_rpc(struct arbiter_thread *abt,
 
 }
 
-//this is for test purpose
 static void handle_free_rpc(struct arbiter_thread *abt,
 			    struct client_desc *c,
 			    struct abt_request *req, 
@@ -204,6 +203,40 @@ static void handle_free_rpc(struct arbiter_thread *abt,
 
 }
 
+static void handle_get_label_rpc(struct arbiter_thread *abt,
+				 struct client_desc *c,
+				 struct abt_request *req, 
+				 struct rpc_header *hdr)
+{
+	struct abt_reply_header rply;
+	//struct abreq_label *catreq = (struct abreq_label *)hdr;	// not needed
+	AB_INFO("Processing get label \n");
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val_64 = c->label;
+
+	abt_sendreply(abt, req, &rply);
+}
+
+static void handle_get_ownership_rpc(struct arbiter_thread *abt,
+				     struct client_desc *c,
+				     struct abt_request *req, 
+				     struct rpc_header *hdr)
+{
+	label_t L;
+	struct abt_reply_header rply;
+	//struct abreq_label *catreq = (struct abreq_label *)hdr;	// not needed
+	AB_INFO("Processing get ownership \n");
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val_64 = c->ownership;
+
+	abt_sendreply(abt, req, &rply);
+}
+	
+	
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
 {
@@ -264,6 +297,18 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_free_rpc(abt, c, req, hdr);
 		break;
 	}
+	case ABT_GET_LABEL:
+	{
+		AB_INFO("arbiter: get_label rpc received. req no=%d.\n", req->pkt_sn);
+		handle_get_label_rpc(abt, c, req, hdr);
+		break;
+	}
+	case ABT_GET_OWNERSHIP:
+	{
+		AB_INFO("arbiter: get_ownership rpc received. req no=%d.\n", req->pkt_sn);
+		handle_get_ownership_rpc(abt, c, req, hdr);
+		break;
+	}	
 	//TODO more to add
 
 	default:

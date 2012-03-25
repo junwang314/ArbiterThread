@@ -144,12 +144,10 @@ pid_t ab_fork(label_t L, own_t O)
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
 		AB_DBG("set %d as special\n", getpid());
-		//TODO check with Xi: 
-		//correct or not? (only one instance of abrpc_client_state?)
 		init_client_state(L, O);
 	}
 	if (pid > 0){ //parent thread
-		sleep(1);
+		sleep(1); //FIXME wait for child to join in order to update its mapping
 		//prepare the header
 		req.hdr.abt_magic = ABT_RPC_MAGIC;
 		req.hdr.msg_len = sizeof(req);
@@ -243,17 +241,48 @@ cat_t create_category(cat_type t)
 }
 
 /* get label of itself */
-cat_t *get_label(void)
+void get_label(label_t L)
 {
-	struct abrpc_client_state *cli_state = get_state();
-	return (cli_state->label);
+	struct abreq_label req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_GET_LABEL;
+
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	memcpy(L, &rply.return_val_64, sizeof(label_t));
+
+	return;
 }		
 
 /* get the capability set of itself */
-cat_t *get_ownership(void)
+void get_ownership(own_t O)
 {
-	struct abrpc_client_state *cli_state = get_state();
-	return (cli_state->ownership);
+	struct abreq_ownership req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_GET_OWNERSHIP;
+
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	memcpy(O, &rply.return_val_64, sizeof(own_t));
+
 }
 
 /* get the label of a memory object */

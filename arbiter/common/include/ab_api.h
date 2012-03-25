@@ -18,11 +18,11 @@ cat_t create_category(cat_type t);	// t is either CAT_S or CAT_I
 /* create new process in the thread control group */
 pid_t ab_fork(label_t L, own_t O);
 
-/* get label of itself */
-cat_t *get_label(void);		
+/* get label of itself into L */
+void get_label(label_t L);		
 
-/* get the capability set of itself */
-cat_t *get_ownership(void);
+/* get the capability set of itself into O */
+void get_ownership(own_t O);
 
 /* memory allocation */
 void *ab_malloc(size_t size, label_t L);
