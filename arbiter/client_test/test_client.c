@@ -137,6 +137,7 @@ int client_test()
         label_t L1 = {ar, aw};
         label_t L2 = {ar};
 	own_t O = {};
+	label_t L_self, L_test;
 	
 	addr = (unsigned long)ab_malloc(1*1024*4, L1);
 	printf("child A malloc: %lx\n", addr);
@@ -144,7 +145,8 @@ int client_test()
 	// test code for get_ownership()
 	own_t O_self;
 	get_ownership(O_self);
-	
+	print_label(O_self);
+
 	addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0)
@@ -186,6 +188,10 @@ int client_test()
 */	
 	addr = (unsigned long)ab_malloc(4, L2);
 	printf("child A malloc: %lx\n", addr);
+	print_label(L2);
+	get_mem_label((void *)addr, L_test);
+	print_label(L_test);
+
 	//addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
 	//printf("child 0 malloc: %lx\n", addr);
 	
@@ -198,12 +204,16 @@ int client_test()
 	//addr = (unsigned long)ablib_sbrk(pid[1], 0);
 	//printf("child 1 sbrk: %lx\n", addr);
 
-	// test code for get_label()
-	label_t L_self;
+	// test code for get_label() & get_mem_label();
 	get_label(L_self);
+	print_label(L_self);
 	addr = (unsigned long)ab_malloc(4, L_self);
 	printf("child A malloc: %lx\n", addr);
 
+	get_mem_label((void *)addr, L_test);
+	print_label(L_test);
+	
+	
 	while(1) {
 		wpid = waitpid(-1, &status, 0);
 		if(wpid <= 0)

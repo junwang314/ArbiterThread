@@ -101,10 +101,9 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 
 /************ Client state descriptor **************/
 
-//TODO: question for Xi: how about the forked threads, when are those states initialized?
 struct abrpc_client_state _abclient;
 
-static inline struct abrpc_client_state *get_state() //TODO: question for Xi: why needed?
+static inline struct abrpc_client_state *get_state()
 {
 	//need lock in future?
 	return &_abclient;
@@ -286,16 +285,26 @@ void get_ownership(own_t O)
 }
 
 /* get the label of a memory object */
-cat_t *get_mem_label(void *ptr)
+void get_mem_label(void *ptr, label_t L)
 {
-	label_t L;
-	return NULL;
-}
+	struct abreq_mem_label req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
 
-/* copy and relabel a memeory object */
-void *ab_memcpy(void *dest, const void *src, size_t n, label_t L)
-{
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_GET_MEM_LABEL;
+
+	req.mem = (uint32_t) ptr;
 	
-	return dest;
-}
+	_client_rpc(state, &req.hdr, &rply);
 
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	memcpy(L, &rply.return_val_64, sizeof(label_t));
+
+	return;
+}

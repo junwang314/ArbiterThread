@@ -13,8 +13,8 @@ enum abt_opcode {
 	ABT_FREE,
 	ABT_CREATE_CAT,
 	ABT_GET_LABEL,
-	ABT_GET_OWNERSHIP
-	//more to add...
+	ABT_GET_OWNERSHIP,
+	ABT_GET_MEM_LABEL
 };
 
 #define ABT_RPC_MAGIC      0xABC0DE
@@ -77,5 +77,9 @@ struct abreq_ownership {
 	struct rpc_header hdr;
 };
 
+struct abreq_mem_label {
+	struct rpc_header hdr;
+	uint32_t mem;
+};
 
 #endif //_ABTHREAD_PROTOCAL_H

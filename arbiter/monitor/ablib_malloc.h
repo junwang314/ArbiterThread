@@ -1098,8 +1098,8 @@ mstate lookup_mstate_by_label(label_t L);
 //look up ustate by memory address, called by ablib_free()
 ustate lookup_ustate_by_mem(void *ptr);
 
-////look up mstate by memory address, called by ablib_free()
-//mstate lookup_mstate_by_mem(void *ptr);
+//look up label by memory address, called by handle_get_mem_label_rpc()
+void lookup_label_by_mem(void *ptr, label_t L);
 
 //locate the unit header using an address 
 struct unit_header *get_unit_header(void *ptr);

@@ -31,9 +31,15 @@ void *ab_malloc(size_t size, label_t L);
 void ab_free(void *ptr);
 
 /* get the label of a memory object */
-cat_t *get_mem_label(void *ptr);
+void get_mem_label(void *ptr, label_t L);
 
-/* copy and relabel a memeory object */
-void *ab_memcpy(void *dest, const void *src, size_t n, label_t L);
+static void print_label(label_t L)
+{
+	int i;
+	for (i = 0; i < 8; i++) {
+		printf("L[%d]=%hx  ", i, L[i]);
+	}
+	printf("\n");
+}
 
 #endif //_AB_API_H

@@ -224,7 +224,6 @@ static void handle_get_ownership_rpc(struct arbiter_thread *abt,
 				     struct abt_request *req, 
 				     struct rpc_header *hdr)
 {
-	label_t L;
 	struct abt_reply_header rply;
 	//struct abreq_label *catreq = (struct abreq_label *)hdr;	// not needed
 	AB_INFO("Processing get ownership \n");
@@ -235,7 +234,27 @@ static void handle_get_ownership_rpc(struct arbiter_thread *abt,
 
 	abt_sendreply(abt, req, &rply);
 }
-	
+
+static void handle_get_mem_label_rpc(struct arbiter_thread *abt,
+				 struct client_desc *c,
+				 struct abt_request *req, 
+				 struct rpc_header *hdr)
+{
+	label_t L;
+	void *ptr;
+	struct abt_reply_header rply;
+	struct abreq_mem_label *labelreq = (struct abreq_mem_label *)hdr;
+	AB_INFO("Processing get mem label \n");
+
+	ptr = (void *)(labelreq->mem);
+	lookup_label_by_mem(ptr, L);
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val_64 = *(uint64_t *)L;
+
+	abt_sendreply(abt, req, &rply);
+}	
 	
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
@@ -263,7 +282,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	//retrive the client information according to the client socket addr
 	c = arbiter_lookup_client(abt, req->client_addr, req->client_addr_len);
 
-	if (c == NULL && hdr->opcode != ABT_FORK ) { //TODO: check with Xi
+	if (c == NULL ) {
 		AB_MSG("arbiter: unknown client\n");
 		return;
 	}
@@ -309,7 +328,12 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_get_ownership_rpc(abt, c, req, hdr);
 		break;
 	}	
-	//TODO more to add
+	case ABT_GET_MEM_LABEL:
+	{
+		AB_INFO("arbiter: get_mem_label rpc received. req no=%d.\n", req->pkt_sn);
+		handle_get_mem_label_rpc(abt, c, req, hdr);
+		break;
+	}
 
 	default:
 		AB_MSG("arbiter rpc: Invallid OP code!\n");
@@ -359,16 +383,14 @@ void init_first_child(pid)
 	memset(c_new, 0, sizeof(c_new));
 
 	//fill out client_desc for the new thread...
-
 	GET_FAMILY(c_new->client_addr.unix_addr) = AF_UNIX;
 	snprintf(GET_PATH(c_new->client_addr.unix_addr), 108, "/tmp/abt_client_%d", pid);
-	c_new->client_addr.addr_len = sizeof(GET_FAMILY(c_new->client_addr.unix_addr)) + strlen(GET_PATH(c_new->client_addr.unix_addr)) + 1;
-	
+	c_new->client_addr.addr_len = sizeof(GET_FAMILY(c_new->client_addr.unix_addr)) 
+				+ strlen(GET_PATH(c_new->client_addr.unix_addr)) + 1;
 	c_new->pid = pid;
 		
 	//add new thread to linked list	
 	list_insert_tail(&(arbiter.client_list), (void *)c_new);
-
 }
 
 

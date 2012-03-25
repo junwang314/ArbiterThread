@@ -1159,7 +1159,7 @@ mstate lookup_mstate_by_label(label_t L)
 					   _cmp_mstate);
 }
 
-//locate ustate using memory address
+//locate ustate using memory address, called by ablib_free()
 ustate lookup_ustate_by_mem(void *ptr)
 {
 	struct list_node *victim_unit;
@@ -1178,9 +1178,12 @@ ustate lookup_ustate_by_mem(void *ptr)
 }
 
 //look up mstate by memory address, called by ablib_free()
-ustate lookup_mstate_by_mem(void *ptr)
+void lookup_label_by_mem(void *ptr, label_t L)
 {
-	return (ustate)lookup_ustate_by_mem(ptr);
+	ustate unit;
+	
+	unit = (ustate)lookup_ustate_by_mem(ptr);
+	memcpy(L, unit->unit_av->label, sizeof(label_t));
 }
 
 /* ----------------------- protection update  ----------------------- */
