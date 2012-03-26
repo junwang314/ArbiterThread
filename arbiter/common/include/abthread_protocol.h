@@ -33,7 +33,7 @@ struct abt_reply_header {
 	uint32_t msg_len;
 	//32bit return value
 	uint32_t return_val;
-	// TODO ask Xi: ?
+	//64bit return value
 	uint64_t return_val_64;
 };
 

@@ -413,11 +413,13 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 
 		/* Don't try if size wraps around 0 */
 		if ((unsigned long)(size) > (unsigned long)(nb)) {
-			//touch the memory
-			mm = (char *)mmap(NULL, size, PROT_READ|PROT_WRITE, 
-				MAP_ANONYMOUS|MAP_SHARED, -1, 0);
-			assert(mm != (char *)(-1));
-			touch_mem(mm, size);
+			//touch the memory	//not needed
+			//mm = (char *)mmap(NULL, size, PROT_READ|PROT_WRITE, 
+			//	MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+			//assert(mm != (char *)(-1));
+			//touch_mem(mm, size);
+
+			mm = (char *)get_unmapped_area(&(get_abstate()->mmapped_ustate_list), size);
 
 			if (mm != (char *)MORECORE_FAILURE) {
 				/*
@@ -442,15 +444,15 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 				}
 				
 				AB_DBG("before call AB_MMAP\n");
-				ab_mm = (char*)(AB_MMAP(pid, (void *)p, size, PROT_READ|PROT_WRITE));
+				ab_mm = (char*)(AB_MMAP(pid, (void *)mm, size, PROT_READ|PROT_WRITE));
 				AB_DBG("after call AB_MMAP\n");
-				assert(ab_mm == (char*)p);
+				assert(ab_mm == (char*)mm);
 
 				if (ab_mm != (char*)(MORECORE_FAILURE)) {
 					//add unit state
 					unit = unit_init_state((mchunkptr)mm, (unsigned long)mm, size, av);
-					list_insert_head(&(av->ustate_list), unit);
 					list_insert_head(&(get_abstate()->ustate_list), unit);
+					insert_mmapped_unit(&(get_abstate()->mmapped_ustate_list), unit);
 
 					/* update statistics */
 
@@ -467,13 +469,14 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 					check_chunk(p);
 		
 					//update protection for other threads
-					prot_update(pid, p, size, L);
+					prot_update(pid, mm, size, L);
 
 					return chunk2mem(p);
 				}
-				else {
-					munmap(mm, size);
-				}
+				// not needed
+				//else {
+				//	munmap(mm, size);
+				//}
 			}
 		}
 	}
@@ -1186,6 +1189,79 @@ void lookup_label_by_mem(void *ptr, label_t L)
 	memcpy(L, unit->unit_av->label, sizeof(label_t));
 }
 
+/* ------------------------ AB_MMAP support ------------------------- */
+static unsigned long get_unmapped_area(struct linked_list *list, unsigned long size)
+{
+	struct list_node *ptr;
+	ustate h_unit, l_unit;
+	
+	if (list->num == 0) {
+		//list is empty, no mmapped unit yet
+		return (CHANNEL_ADDR + CHANNEL_SIZE - size);
+	}
+	ptr = list->tail;
+	l_unit = ptr->data;
+	if (l_unit->addr + l_unit->length + size <= CHANNEL_ADDR + CHANNEL_SIZE) {
+		//the hole between the highest unit and channel heap end is available
+		return (CHANNEL_ADDR + CHANNEL_SIZE - size);
+	}
+	else {
+		//search for holes among existing unit
+		for (ptr = list->tail->prev; ptr != NULL; ptr = ptr->prev) {
+			l_unit = ptr->data;
+			h_unit = ptr->next->data;
+			if (l_unit->addr + l_unit->length + size < h_unit->addr) {
+				return (h_unit->addr - size);
+			}
+		}
+		//no holes available, grow downwards
+		h_unit = ptr->next->data;
+		if (get_abstate()->ab_top + size <= h_unit->addr) {
+			//check if reaching the ab_top
+			return (h_unit->addr - size);
+		}
+	}
+	//available are not found
+	return 0;
+}
+
+static void insert_mmapped_unit(struct linked_list *list, ustate unit)
+{
+	struct list_node *ptr;
+	ustate mmapped_unit;
+	
+	if (list->num == 0) {
+		//list is empty, simply add to list
+		list_insert_head(list, unit);
+	}
+	else if (unit->addr < get_ustate(list->head)->addr){
+		//unit area is lower than the existing lowest unit, add to list head
+		list_insert_head(list, unit);
+	}
+	else {
+		//unit area is between two existing units
+		for (ptr = list->tail; ptr != NULL; ptr = ptr->prev) {
+			mmapped_unit = ptr->data;
+			if ((mmapped_unit->addr + (unsigned long)(mmapped_unit->length)) < unit->addr) {
+				//insert unit
+				struct list_node *new = (struct list_node *)malloc(sizeof(struct list_node));
+				assert(new);
+				new->prev = ptr;
+				new->next = ptr->next;
+				new->data = unit;
+				ptr->next->prev = new;
+				ptr->next = new;
+				list->num += 1;
+				break;
+			}
+		
+		}
+		if (ptr == NULL) { //did not insert successfully
+			AB_DBG("ERROR: insert_mmapped_unit error");
+		}
+	}
+}
+ 
 /* ----------------------- protection update  ----------------------- */
 // update protection for other thread according to label comparision 
 static void prot_update(pid_t pid, void *p, long size, label_t L)
@@ -1272,7 +1348,7 @@ void malloc_update(struct client_desc *c_new)
 		}
 		//set protection on page table
 		AB_MMAP(pid, (void *)addr, length, prot); //TODO: ask Xi: what should absys_mmap do?
-		AB_DBG("AB_MMAP argument=(%d, %lx, %lx, %d)\n", pid, addr, length, prot);
+		AB_DBG("AB_MMAP argument=(%d, %lx, %d, %d)\n", pid, addr, length, prot);
 		//AB_DBG("absys_maprotect argument=(%d, %lx, %lx, %d)\n",pid, addr, length, prot);
 		//absys_mprotect(pid, addr, length, prot);
 				

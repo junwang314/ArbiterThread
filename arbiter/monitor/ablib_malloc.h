@@ -1085,12 +1085,14 @@ struct abheap_state {
 	struct linked_list mstate_list;
 	
 	struct linked_list ustate_list;
+	
+	struct linked_list mmapped_ustate_list;
 };
 
-#define CHANNEL_SIZE 10*10*1024*4
+#define CHANNEL_SIZE 512*1024*1024
 #define CHANNEL_ADDR 0x80000000
 
-/* ----------------------- mstate retrival ----------------------- */
+/* ----------------------- metadata retrival ----------------------- */
 
 //look up mstate by label, called by ablib_malloc()
 mstate lookup_mstate_by_label(label_t L);
@@ -1103,6 +1105,14 @@ void lookup_label_by_mem(void *ptr, label_t L);
 
 //locate the unit header using an address 
 struct unit_header *get_unit_header(void *ptr);
+
+//search from the end of channel heap backwards for an unmmaped area for AB_MMAP
+//called by __malloc_alloc()
+static unsigned long get_unmapped_area(struct linked_list *list, unsigned long size);
+
+//insert mmaped unit state to mmapped_ustate_list in abheap_state
+//called by __malloc_alloc()
+static void insert_mmapped_unit(struct linked_list *list, ustate unit);
 
 /* ----------------------- Syscall support  ----------------------- */
 

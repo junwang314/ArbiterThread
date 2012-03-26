@@ -12,7 +12,7 @@
 #include <lib_client.h>
 
 //number of child thread
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 
 //DEMO
 //#define DEMO
@@ -138,15 +138,15 @@ int client_test()
         label_t L2 = {ar};
 	own_t O = {};
 	label_t L_self, L_test;
+	own_t O_self;
 	
 	addr = (unsigned long)ab_malloc(1*1024*4, L1);
 	printf("child A malloc: %lx\n", addr);
 
 	// test code for get_ownership()
-	own_t O_self;
-	get_ownership(O_self);
+/*	get_ownership(O_self);
 	print_label(O_self);
-
+*/
 	addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0)
@@ -175,44 +175,43 @@ int client_test()
 //	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 //	printf("child 0 sbrk: %lx\n", addr);
 	
-//	addr = (unsigned long)ab_malloc(1*1024*4, L2);
-//	printf("child A malloc: %lx\n", addr);
-	//ab_free((void *)addr);
-/*	for (i = 1; i < 100*1024*4; i = i + 100) {
-		addr = (unsigned long)ab_malloc(i%(50*1024*4), L2);
-		printf("child A malloc: %lx, size = %d\n", addr, i%(50*1024*4));
-	
-		ab_free((void *)addr);
-		//printf("child A free: %lx\n", addr);
+	addr = (unsigned long)ab_malloc(11*1024*4, L2);
+	printf("child A malloc: %lx\n", addr);
+	ab_free((void *)addr);
+	addr = (unsigned long)ab_malloc(11*1024*4, L2);
+	printf("child A malloc: %lx\n", addr);
+
+/*	unsigned long addr_list[100];
+	for (i = 0; i < 100; i = i + 1) {
+		addr_list[i] = (unsigned long)ab_malloc(i*100, L2);
+		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*100);
+	}
+	for (i = 0; i < 100; i = i + 1) {
+		ab_free((void *)addr_list[i]);
+		printf("child A free: %lx\n", addr_list[i]);
+	}
+	for (i = 0; i < 100; i = i + 1) {
+		addr_list[i] = (unsigned long)ab_malloc(i*100, L2);
+		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*100);
 	}
 */	
-	addr = (unsigned long)ab_malloc(4, L2);
+	// test code for get_mem_label()
+/*	addr = (unsigned long)ab_malloc(4, L2);
 	printf("child A malloc: %lx\n", addr);
 	print_label(L2);
 	get_mem_label((void *)addr, L_test);
 	print_label(L_test);
-
-	//addr = (unsigned long)ablib_malloc(pid[0], 1024*4, L1);
-	//printf("child 0 malloc: %lx\n", addr);
-	
-	//addr = (unsigned long)ablib_malloc(pid[0], 9*1024*4, L1);
-	//printf("child 0 malloc: %lx\n", addr);
-
-	//addr = (unsigned long)ablib_sbrk(pid[0], 0);
-	//printf("child 0 sbrk: %lx\n", addr);
-	
-	//addr = (unsigned long)ablib_sbrk(pid[1], 0);
-	//printf("child 1 sbrk: %lx\n", addr);
+*/
 
 	// test code for get_label() & get_mem_label();
-	get_label(L_self);
+/*	get_label(L_self);
 	print_label(L_self);
 	addr = (unsigned long)ab_malloc(4, L_self);
 	printf("child A malloc: %lx\n", addr);
 
 	get_mem_label((void *)addr, L_test);
 	print_label(L_test);
-	
+*/	
 	
 	while(1) {
 		wpid = waitpid(-1, &status, 0);
