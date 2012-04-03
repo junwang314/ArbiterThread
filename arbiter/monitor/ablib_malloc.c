@@ -1215,7 +1215,7 @@ static unsigned long get_unmapped_area(struct linked_list *list, unsigned long s
 			}
 		}
 		//no holes available, grow downwards
-		h_unit = ptr->next->data;
+		h_unit = list->head->data;
 		if (get_abstate()->ab_top + size <= h_unit->addr) {
 			//check if reaching the ab_top
 			return (h_unit->addr - size);

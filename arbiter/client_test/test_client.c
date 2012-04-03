@@ -175,26 +175,26 @@ int client_test()
 //	addr = (unsigned long)ablib_sbrk(pid[0], 0);
 //	printf("child 0 sbrk: %lx\n", addr);
 	
-	addr = (unsigned long)ab_malloc(11*1024*4, L2);
+	addr = (unsigned long)ab_malloc(41000, L2);
 	printf("child A malloc: %lx\n", addr);
-	ab_free((void *)addr);
+	//ab_free((void *)addr);
 	addr = (unsigned long)ab_malloc(11*1024*4, L2);
 	printf("child A malloc: %lx\n", addr);
 
-/*	unsigned long addr_list[100];
+	unsigned long addr_list[100];
 	for (i = 0; i < 100; i = i + 1) {
-		addr_list[i] = (unsigned long)ab_malloc(i*100, L2);
-		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*100);
+		addr_list[i] = (unsigned long)ab_malloc(i*1000, L2);
+		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*1000);
 	}
 	for (i = 0; i < 100; i = i + 1) {
 		ab_free((void *)addr_list[i]);
 		printf("child A free: %lx\n", addr_list[i]);
 	}
 	for (i = 0; i < 100; i = i + 1) {
-		addr_list[i] = (unsigned long)ab_malloc(i*100, L2);
-		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*100);
+		addr_list[i] = (unsigned long)ab_malloc(i*1000, L2);
+		printf("child A malloc: %lx, size = %d\n", addr_list[i], i*1000);
 	}
-*/	
+	
 	// test code for get_mem_label()
 /*	addr = (unsigned long)ab_malloc(4, L2);
 	printf("child A malloc: %lx\n", addr);
