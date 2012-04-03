@@ -1,0 +1,16 @@
+Steps to run test:
+ - Install memcached: sudo apt-get install memcached
+ - Start memcached: memcached -d -vvv (man memcached for more info)
+ - Install libmemcached: search "libmemcached" in package manager and install
+ - Programming: "#include <libmemcached/memcached.h>"
+ - Compiling: compile with "gcc ­-lmemcached *.c"
+ - Run and test: the following command-line tools can be used for testing purpose
+
+
+Command-line tools:
+  * memcat - Copy the value of a key to standard output
+  * memflush - Flush the contents of your servers.
+  * memrm - Remove a key(s) from the serrver.
+  * memcp - Copy files to a memached server.
+  * memstat - Dump the stats of your servers to standard output
+  * memslap - Generate testing loads on a memcached cluster
