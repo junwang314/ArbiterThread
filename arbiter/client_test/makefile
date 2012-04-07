@@ -21,6 +21,7 @@ CLIENTTEST_OBJS=\
 INCS=\
 	-I$(AB_ROOT)/common/include \
 	-I$(LIB_CLIENT) \
+	-lpthread
 
 CFLAGS=\
 	-g  \
