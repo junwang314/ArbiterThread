@@ -2732,7 +2732,14 @@ static int do_abt_anon_page(struct mm_struct *mm, struct vm_area_struct *vma,
 		goto release;
 
 	inc_mm_counter(mm, anon_rss);
-	page_add_new_anon_rmap(page, vma, address);
+
+
+	//this is actually not a new anon mapping!!
+	//page_add_new_anon_rmap(page, vma, address);
+
+	//just increase the mapcount
+	atomic_inc(&page->_mapcount);
+
 setpte:
 	set_pte_at(mm, address, page_table, entry);
 
