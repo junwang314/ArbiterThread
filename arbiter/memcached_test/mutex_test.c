@@ -6,9 +6,6 @@
 #include <pthread.h>
 #include <errno.h> /* errno */
 
-
-int shmid;
-
 // wrappers for Pthread mutex operation
 void unix_error(char *msg)	// Unix-style error
 {
@@ -59,7 +56,7 @@ static void child_func(void)
 	char *shm;
 
 	//wait parent 
-	sleep(5);
+	sleep(10);
 		
 	//init shared memory
 	key = 5678;
@@ -74,7 +71,10 @@ static void child_func(void)
 	
 	//test code for pthread mutex
 	pthread_mutex_t *mutex;
+	pthread_mutexattr_t attr;
+	
 	mutex = (pthread_mutex_t *)shm;
+	
 	printf("child: mutex = %p\n", mutex);
 	Pthread_mutex_lock(mutex);
 	printf("child: doing somthing\n");
@@ -107,7 +107,7 @@ void main()
 	mutex = (pthread_mutex_t *)shm;
 	Pthread_mutexattr_init(&attr);
 	Pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-	Pthread_mutex_init(mutex, &attr);
+	Pthread_mutex_init(mutex, NULL);
 	
 	//fork a child
 	pid_t pid;
