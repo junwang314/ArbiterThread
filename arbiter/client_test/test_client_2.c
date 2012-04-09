@@ -255,9 +255,8 @@ int client_test()
 	label_t L_self, L_test;
 	own_t O_self;
 	
-	addr = (unsigned long)ab_malloc(1*1024*4, L1);
+	addr = (unsigned long)ab_malloc(1*1024*2, L1);
 	printf("child A malloc: %lx\n", addr);
-	*(unsigned long *)addr = 0xdeadbeef;
 		
 	int fd;
 	void *mutex_addr;
@@ -283,6 +282,9 @@ int client_test()
 	Pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
 	Pthread_mutex_init(mutex, &attr);
 	
+	
+	addr = (unsigned long)ab_malloc(1*1024, L1);
+	printf("child A malloc: %lx\n", addr);
 	// test code for get_ownership()
 /*	get_ownership(O_self);
 	print_label(O_self);
@@ -323,7 +325,7 @@ int client_test()
 	}
 	//wait some time for all the child to start
 	//sleep(5);
-	
+	*(unsigned long *)addr = 0xdeadbeef;
 	printf("parent: mutex = %p\n", mutex);
 	printf("parent: ");
 	debug_mutex(mutex);	

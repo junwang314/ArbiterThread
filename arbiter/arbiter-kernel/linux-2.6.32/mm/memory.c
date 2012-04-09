@@ -3012,11 +3012,14 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 {
 	pte_t entry;
 	spinlock_t *ptl;
-
 	entry = *pte;
 	if (!pte_present(entry)) {
 		if (pte_none(entry)) {
 		  	if (is_abt_vma(vma)) {		// ArbiterThread: handle abt anonymous page
+				AB_INFO("handle_pte_fault #0: faulting child pid = %lu, address = %lx, flag = %lu.\n",
+					(unsigned long)current->pid,
+					address,
+					flags);
 				return do_abt_anon_page(mm, vma, address,
 						 pte, pmd, flags);
 			}
@@ -3042,6 +3045,12 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 		goto unlock;
 	if (flags & FAULT_FLAG_WRITE) {
 		if (!pte_write(entry))
+			if (is_abt_vma(vma)) {
+				AB_INFO("handle_pte_fault #1: faulting child pid = %lu, address = %lx, flag = %lu.\n",
+					(unsigned long)current->pid,
+					address,
+					flags);
+			}
 			return do_wp_page(mm, vma, address,
 					pte, pmd, ptl, entry);
 		entry = pte_mkdirty(entry);
@@ -3061,6 +3070,12 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 	}
 unlock:
 	pte_unmap_unlock(pte, ptl);
+	if (is_abt_vma(vma)) {
+		AB_INFO("handle_pte_fault #2: faulting child pid = %lu, address = %lx, flag = %lu.\n",
+			(unsigned long)current->pid,
+			address,
+			flags);
+	}
 	return 0;
 }
 

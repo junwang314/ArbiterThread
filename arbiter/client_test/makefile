@@ -7,12 +7,12 @@ AB_ROOT=..
 
 CLIENTTEST_SRCS=\
 	client_test.c \
-	test_client_2.c \
+	test_client.c \
 
 LIB_CLIENT=$(AB_ROOT)/client_module/
 
 LIB_CLIENT_OBJS=\
-	lib_client.o \
+	$(BUILD)/lib_client.o \
 
 CLIENTTEST_OBJS=\
 	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(CLIENTTEST_SRCS))) $(LIB_CLIENT_OBJS)
