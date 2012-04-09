@@ -109,7 +109,7 @@ static void suicide()
 
 static void debug_mutex(pthread_mutex_t *mutex)
 {
-	//AB_DBG("__lock = %d\n", (&(mutex->__data))->__lock);
+	AB_DBG("__lock = %d\n", (&(mutex->__data))->__lock);
 	return;
 }
 
@@ -127,13 +127,14 @@ static void child_func(unsigned long _addr, void *addr_to_map, label_t L1, label
 #ifndef DEMO
 		//addr = (unsigned long)ab_malloc(4, L1);
 		//printf("child B malloc: %lx\n", addr);
-		
+
+		//*(unsigned long *)_addr = 0xdeadbeef;
+		//printf("child B: *_addr = %lx\n", *(unsigned long *)_addr);		
+
 		//test code for pthread mutex
 		pthread_mutex_t *mutex;
 		pthread_mutexattr_t attr;
-		
-		*(unsigned long *)_addr = 0xdeadbeef;
-		//printf("child B: *_addr = %lx\n", *(unsigned long *)_addr);
+
 		mutex = (pthread_mutex_t *)addr_to_map;
 		AB_DBG("child B: mutex = %p\n", mutex);
 		for (j = 0; j < 1; j++) {
@@ -141,10 +142,10 @@ static void child_func(unsigned long _addr, void *addr_to_map, label_t L1, label
 			debug_mutex(mutex);
 			sleep(1);
 		}
-		//Pthread_mutex_lock(mutex);
+		Pthread_mutex_lock(mutex);
 		printf("child B: doing somthing\n");
-		//Pthread_cond_signal(cond);
-		//Pthread_mutex_unlock(mutex);
+		Pthread_cond_signal(cond);
+		Pthread_mutex_unlock(mutex);
 #endif
 #ifdef DEMO
 		//child B initialize data
@@ -250,7 +251,7 @@ int client_test()
 	addr = (unsigned long)ab_malloc(1*1024, L1);
 	printf("child A malloc: %lx\n", addr);
 	//printf("addr = %lx\n", *(unsigned long *)addr);
-	*(unsigned long *)addr = 0x12345678;
+	//*(unsigned long *)addr = 0x12345678;
 	
 	// test code for get_ownership()
 /*	get_ownership(O_self);
@@ -263,13 +264,13 @@ int client_test()
 	mutex = (pthread_mutex_t *)ab_malloc(sizeof(pthread_mutex_t), L1);
 	Pthread_mutexattr_init(&attr);
 	Pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-	//Pthread_mutex_init(mutex, &attr);
+	Pthread_mutex_init(mutex, &attr);
 
 	cond = (pthread_cond_t *)ab_malloc(sizeof(pthread_cond_t), L1);
 	pthread_condattr_t condattr;
 	Pthread_condattr_init(&condattr);
 	Pthread_condattr_setpshared(&condattr, PTHREAD_PROCESS_SHARED);
-	//Pthread_cond_init(cond, &condattr);
+	Pthread_cond_init(cond, &condattr);
 
 	//addr_to_map = 0x80000000;
 	for (i = 0; i < NUM_THREADS; ++i) {
@@ -293,22 +294,21 @@ int client_test()
 		}		
 	}
 	//wait some time for all the child to start
-	sleep(10);
-	printf("child A: addr = %lx\n", *(unsigned long *)addr);
-	
-	// test code for pthread mutex
-	//Pthread_mutex_init(mutex, &attr);
+	//sleep(10);
+	//printf("child A: addr = %lx\n", *(unsigned long *)addr);
 	//*(unsigned long *)addr = 0xdeadbeef;
+
+	// test code for pthread mutex
 	AB_DBG("child A: mutex = %p\n", mutex);
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
-	//Pthread_mutex_lock(mutex);
-	//Pthread_cond_wait(cond, mutex);
+	Pthread_mutex_lock(mutex);
+	Pthread_cond_wait(cond, mutex);
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
-	sleep(10);
-	printf("child A: doing somthing\n");	
-	//Pthread_mutex_unlock(mutex);	
+	printf("child A: doing somthing\n");
+	sleep(10);	
+	Pthread_mutex_unlock(mutex);	
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
 	// test code for ablib_brk()

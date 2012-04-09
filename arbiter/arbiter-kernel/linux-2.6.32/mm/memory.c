@@ -1997,6 +1997,11 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	int page_mkwrite = 0;
 	struct page *dirty_page = NULL;
 
+	//ArbiterThread: to avoid COW for channel heap
+	if (is_abt_vma(vma)) {
+		goto reuse;
+	}
+	
 	old_page = vm_normal_page(vma, address, orig_pte);
 	if (!old_page) {
 		/*
