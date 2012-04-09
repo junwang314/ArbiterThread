@@ -1347,7 +1347,10 @@ void malloc_update(struct client_desc *c_new)
 			default: prot = PROT_NONE;
 		}
 		//set protection on page table
-		AB_MMAP(pid, (void *)addr, length, prot); //TODO: ask Xi: what should absys_mmap do?
+		//AB_MMAP(pid, (void *)addr, length, prot); //TODO: ask Xi: what should absys_mmap do?
+		if (absys_mprotect(pid, (void *)addr, length, prot) != 0) {
+			AB_MSG("ERROR: malloc_update() failed\n");
+		}
 		AB_DBG("AB_MMAP argument=(%d, %lx, %d, %d)\n", pid, addr, length, prot);
 		//AB_DBG("absys_maprotect argument=(%d, %lx, %lx, %d)\n",pid, addr, length, prot);
 		//absys_mprotect(pid, addr, length, prot);

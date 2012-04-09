@@ -121,8 +121,7 @@ static void child_func(unsigned long _addr, void *addr_to_map, label_t L1, label
 	int j;
 	
 	//wait parent 
-	*(unsigned long *)_addr = 0xdeadbeef;
-	//sleep(5);
+	sleep(5);
 
 	if (i == 0) {
 #ifndef DEMO
@@ -132,7 +131,8 @@ static void child_func(unsigned long _addr, void *addr_to_map, label_t L1, label
 		//test code for pthread mutex
 		pthread_mutex_t *mutex;
 		pthread_mutexattr_t attr;
-
+		
+		*(unsigned long *)_addr = 0xdeadbeef;
 		//printf("child B: *_addr = %lx\n", *(unsigned long *)_addr);
 		mutex = (pthread_mutex_t *)addr_to_map;
 		AB_DBG("child B: mutex = %p\n", mutex);
