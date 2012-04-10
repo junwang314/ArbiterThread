@@ -456,7 +456,7 @@ static void print_bad_pte(struct vm_area_struct *vma, unsigned long addr,
 
 static inline int is_cow_mapping(unsigned int flags)
 {
-	return (flags & (VM_SHARED | VM_MAYWRITE)) == VM_MAYWRITE;
+	return (flags & (VM_SHARED | VM_MAYWRITE | VM_AB_CONTROL)) == VM_MAYWRITE;
 }
 
 #ifndef is_zero_pfn
@@ -1998,9 +1998,9 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	struct page *dirty_page = NULL;
 
 	//ArbiterThread: to avoid COW for channel heap
-	if (is_abt_vma(vma)) {
-		goto reuse;
-	}
+	//if (is_abt_vma(vma)) {
+	//	goto reuse;
+	//}
 	
 	old_page = vm_normal_page(vma, address, orig_pte);
 	if (!old_page) {
