@@ -1135,6 +1135,7 @@ static void prot_update(pid_t pid, void *p, long size, label_t L);
 
 void malloc_update(struct client_desc *c_new);
 
+void *ablib_calloc(pid_t pid, size_t n_elements, size_t elem_size, label_t L);
 /* ------------------------------- Misc  ---------------------------- */
 
 //touch the allocated memory so that physical pages are mapped to arbiter

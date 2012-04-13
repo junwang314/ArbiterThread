@@ -117,8 +117,14 @@ void init_client_state(label_t L, own_t O)
 	if (L != NULL) {
 		memcpy(&cli_state->label, L, sizeof(label_t));
 	}
+	else {
+		memset(&cli_state->label, 0, sizeof(label_t));;
+	}
 	if (O != NULL) {
 		memcpy(&cli_state->ownership, O, sizeof(own_t));
+	}
+	else {
+		memset(&cli_state->ownership, 0, sizeof(own_t));;
 	}
 	//ipc init
 	init_client_ipc(cli_state);
@@ -308,3 +314,28 @@ void get_mem_label(void *ptr, label_t L)
 
 	return;
 }
+
+void *ab_calloc(size_t nmemb, size_t size, label_t L)
+{
+	struct abreq_calloc req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_CALLOC;
+
+	req.nmemb = (uint32_t) nmemb;
+	req.size = (uint32_t) size;
+
+	req.label = *(uint64_t *) L;
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	return (void *)rply.return_val;
+}
+

@@ -20,7 +20,8 @@ ARBITER_SRCS=\
 	client.c \
 	label.c \
 	ablib_brk.c \
-	ablib_sbrk.c
+	ablib_sbrk.c \
+	ablib_calloc.c
 
 ABTEST_SRCS=\
 	ablib_malloc.c \

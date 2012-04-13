@@ -255,7 +255,54 @@ static void handle_get_mem_label_rpc(struct arbiter_thread *abt,
 
 	abt_sendreply(abt, req, &rply);
 }	
+
+static void handle_calloc_rpc(struct arbiter_thread *abt,
+			      struct client_desc *c,
+			      struct abt_request *req, 
+			      struct rpc_header *hdr)
+{
+	void *ptr;
+	size_t size, nmemb;
+	label_t L1, L2;
+	pid_t pid;
+	own_t O1;
+	struct abt_reply_header rply;
+	struct abreq_calloc *callocreq = (struct abreq_calloc *)hdr;
+	AB_INFO("Processing calloc \n");
+
+	nmemb = callocreq->nmemb;
+	size = callocreq->size;
+	*(uint64_t *)L2 = callocreq->label;
+
+	pid = (pid_t)(c->pid);
+	*(uint64_t *)L1 = c->label;
+	*(uint64_t *)O1 = c->ownership;
+
+	//label check	
+	if ( check_label(L1, O1, L2, NULL) ) {
+		ptr = NULL;
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+		rply.return_val = (uint32_t)ptr;
+
+		//report voilatioin
+		AB_MSG("VOILATION: calloc voilation!\n");
 	
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+	
+	ptr = (void *)ablib_calloc(pid, nmemb, size, L2);
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = (uint32_t)ptr;
+
+	abt_sendreply(abt, req, &rply);
+
+}
+
+
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
 {
@@ -332,6 +379,14 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	{
 		AB_INFO("arbiter: get_mem_label rpc received. req no=%d.\n", req->pkt_sn);
 		handle_get_mem_label_rpc(abt, c, req, hdr);
+		break;
+	}
+	case ABT_CALLOC:
+	{
+		AB_INFO("arbiter: calloc rpc received. req no=%d.\n", req->pkt_sn);
+
+		//the handling routine
+		handle_calloc_rpc(abt, c, req, hdr);
 		break;
 	}
 

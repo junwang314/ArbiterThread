@@ -33,6 +33,9 @@ void ab_free(void *ptr);
 /* get the label of a memory object */
 void get_mem_label(void *ptr, label_t L);
 
+/* memory allocation */
+void *ab_calloc(size_t nmemb, size_t size, label_t L);
+
 static void print_label(label_t L)
 {
 	int i;

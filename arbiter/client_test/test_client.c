@@ -248,7 +248,7 @@ int client_test()
 	label_t L_self, L_test;
 	own_t O_self;
 	
-	addr = (unsigned long)ab_malloc(1*1024, L1);
+	addr = (unsigned long)ab_calloc(256, 4, L1);
 	printf("child A malloc: %lx\n", addr);
 	//printf("addr = %lx\n", *(unsigned long *)addr);
 	//*(unsigned long *)addr = 0x12345678;

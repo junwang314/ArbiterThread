@@ -14,7 +14,8 @@ enum abt_opcode {
 	ABT_CREATE_CAT,
 	ABT_GET_LABEL,
 	ABT_GET_OWNERSHIP,
-	ABT_GET_MEM_LABEL
+	ABT_GET_MEM_LABEL,
+	ABT_CALLOC
 };
 
 #define ABT_RPC_MAGIC      0xABC0DE
@@ -82,4 +83,10 @@ struct abreq_mem_label {
 	uint32_t mem;
 };
 
+struct abreq_calloc {
+	struct rpc_header hdr;
+	uint32_t nmemb;
+	uint32_t size;
+	uint64_t label;
+};
 #endif //_ABTHREAD_PROTOCAL_H
