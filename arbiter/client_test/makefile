@@ -7,7 +7,7 @@ AB_ROOT=..
 
 CLIENTTEST_SRCS=\
 	client_test.c \
-	test_client.c \
+	test_client_1.c \
 
 LIB_CLIENT=$(AB_ROOT)/client_module/
 

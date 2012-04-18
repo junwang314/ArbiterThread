@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h> /* exit() */
 
 #include <abthread_protocol.h>
 #include <ab_api.h>
@@ -157,6 +158,53 @@ pid_t ab_fork(label_t L, own_t O)
 		req.hdr.abt_magic = ABT_RPC_MAGIC;
 		req.hdr.msg_len = sizeof(req);
 		req.hdr.opcode = ABT_FORK;
+
+		req.label = *(uint64_t *) L;
+		req.ownership = *(uint64_t *) O;
+		req.pid = (uint32_t)pid;
+		_client_rpc(state, &req.hdr, &rply);
+
+		//not an malformed message
+		assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+		assert(rply.msg_len == sizeof(rply));
+	
+		if (rply.return_val) //arbiter failed to register 
+			return -1;
+
+		//return pid;
+	}
+	return pid;
+}
+
+int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+		      void * (*start_routine)(void *), void *arg,
+		      label_t L, own_t O)
+{
+	pid_t pid;
+	struct abreq_fork req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+		
+	//now clone a child thread
+	//pid = clone(start_routine, 0, CLONE_FS | CLONE_FILES | CLONE_SIGVSEM, arg);
+	pid = fork();	
+	if (pid < 0) {
+		AB_MSG("ab_pthread_create() failed\n");
+	}
+	if (pid == 0){ //child thread
+		absys_thread_control(AB_SET_ME_SPECIAL);
+		AB_DBG("set %d as special\n", getpid());
+		init_client_state(L, O);
+		(*start_routine)(arg);
+		exit(0);
+	}
+	if (pid > 0){ //parent thread 
+		sleep(1); //FIXME wait for child to join in order to update its mapping 
+
+		//prepare the header 
+		req.hdr.abt_magic = ABT_RPC_MAGIC; 
+		req.hdr.msg_len = sizeof(req); 
+		req.hdr.opcode = ABT_FORK; 
 
 		req.label = *(uint64_t *) L;
 		req.ownership = *(uint64_t *) O;

@@ -54,6 +54,15 @@ struct abreq_fork{
 	uint32_t pid;
 };
 
+//#define abreq_pthread_create abreq_fork
+/*
+struct abreq_pthread_create{
+	struct rpc_header hdr;
+	uint64_t label;
+	uint64_t ownership;
+	uint32_t pid;
+};*/
+
 struct abreq_malloc {
 	struct rpc_header hdr;
 	uint32_t size;

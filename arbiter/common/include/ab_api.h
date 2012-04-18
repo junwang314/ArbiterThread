@@ -3,6 +3,7 @@
 
 #include <stdint.h> /* uint8_t */
 #include <unistd.h> /* pid_t */
+#include <pthread.h>
 
 #define CAT_S	((uint8_t)0b00000000)
 #define CAT_I	((uint8_t)0b10000000)	// use most significant bit as flag
@@ -17,6 +18,11 @@ cat_t create_category(cat_type t);	// t is either CAT_S or CAT_I
 
 /* create new process in the thread control group */
 pid_t ab_fork(label_t L, own_t O);
+
+/* create new thread in the thread control group */
+int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr, 
+		      void * (*start_routine)(void *), void *arg, 
+		      label_t L, own_t O);
 
 /* get label of itself into L */
 void get_label(label_t L);		
