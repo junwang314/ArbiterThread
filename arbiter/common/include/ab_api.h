@@ -24,6 +24,9 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		      void * (*start_routine)(void *), void *arg, 
 		      label_t L, own_t O);
 
+/* wait for thread termination */
+int ab_pthread_join(pthread_t thread, void **value_ptr);
+
 /* get label of itself into L */
 void get_label(label_t L);		
 

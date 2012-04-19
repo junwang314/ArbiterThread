@@ -21,5 +21,6 @@ int main()
 	
 	client_test();
 
+	return 0;
 }
 

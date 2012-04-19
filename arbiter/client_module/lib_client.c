@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h> /* exit() */
+#include <sys/wait.h> /* waitpid() */
 
 #include <abthread_protocol.h>
 #include <ab_api.h>
@@ -190,11 +191,13 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	pid = fork();	
 	if (pid < 0) {
 		AB_MSG("ab_pthread_create() failed\n");
+		return -1;
 	}
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
 		AB_DBG("set %d as special\n", getpid());
 		init_client_state(L, O);
+		*thread = getpid();
 		(*start_routine)(arg);
 		exit(0);
 	}
@@ -220,7 +223,54 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 		//return pid;
 	}
-	return pid;
+	return 0;
+}
+
+int ab_pthread_join(pthread_t thread, void **value_ptr)
+{
+	struct abreq_pthread_join req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+	pid_t wpid;
+	int status;
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_PTHREAD_JOIN;
+
+	req.pid = (uint32_t) thread;
+
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	if(rply.return_val == 0) {
+		wpid = waitpid((pid_t) thread, &status, __WCLONE|__WALL);
+		//FIXME for debug purpose, no need to be so complicated
+		if(wpid <= 0) {
+			return -1;
+		}
+		if(WIFEXITED(status)) {
+			printf("child %lu exited normally.\n", 
+			       (unsigned long)wpid);
+			return 0;
+		}
+		if(WIFSIGNALED(status)) {
+			printf("child %lu terminated by a signal.\n",
+			       (unsigned long)wpid);
+			return 0;
+		}
+		else {
+			printf("wait pid returns with status %d\n", status);
+			return 0;
+		}
+	}
+	else {	//pid not found in the control group
+		return -1;
+	}
 }
 
 void ab_free(void *ptr)

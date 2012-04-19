@@ -45,3 +45,26 @@ struct client_desc *arbiter_lookup_client(struct arbiter_thread *abt,
 
 	return (struct client_desc *)linked_list_lookup(&abt->client_list, &cmp, _cmp_client);
 }
+
+static bool _cmp_client_pid(const void *key, const void* data)
+{
+	struct client_desc *c = (struct client_desc *)data;
+
+	if (c->pid == *(uint32_t *)key)
+		return false;
+	else
+		return true;
+}
+
+struct client_desc *arbiter_lookup_client_pid(struct arbiter_thread *abt, 
+					      uint32_t pid)
+{
+	return (struct client_desc *)linked_list_lookup(&abt->client_list, &pid, _cmp_client_pid);
+}
+
+void *arbiter_del_client(struct arbiter_thread *abt, struct client_desc *c){
+	struct list_node *node;
+	node = linked_list_locate(&abt->client_list, (void *)c);
+	assert(node != NULL);
+	return list_del_entry(&abt->client_list, node);
+}

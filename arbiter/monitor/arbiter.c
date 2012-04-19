@@ -110,6 +110,61 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 
 }
 
+static void handle_pthread_join_rpc(struct arbiter_thread *abt,
+				    struct client_desc *c,
+				    struct abt_request *req, 
+				    struct rpc_header *hdr)
+{
+	label_t L1, L2;
+	own_t O1, O2;
+	struct client_desc *c_join;
+	struct abt_reply_header rply;
+	struct abreq_pthread_join *pjoinreq = (struct abreq_pthread_join *)hdr;
+	AB_INFO("Processing pthread_join \n");
+	
+	c_join = arbiter_lookup_client_pid(abt, pjoinreq->pid);
+	//check if the joining child belongs to the control group
+	if (c_join == NULL ) {
+		AB_MSG("arbiter: unknown client\n");
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+		rply.return_val = -1; //-1 indicate failure
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+
+	*(uint64_t *)L1 = c->label;
+	*(uint64_t *)O1 = c->ownership;
+	*(uint64_t *)L2 = c_join->label;
+	*(uint64_t *)O2 = c_join->ownership;
+
+	//label check
+	if ( check_label(L1, O1, L2, O2) ) {
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+		rply.return_val = -1; //-1 indicate failure
+
+	//report voilation
+		
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+
+	//AB_DBG("thread joined: pid=%d, label=%lx, ownership=%lx\n", 
+	//	c_join->pid, c_join->label, c_join->ownership);
+	
+	//deallocate c_join
+	arbiter_del_client(abt, c_join); //remove from linked list
+	free(c_join);
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = 0; //0 indicate success
+
+	abt_sendreply(abt, req, &rply);
+
+}
+
 static void handle_malloc_rpc(struct arbiter_thread *abt,
 			      struct client_desc *c,
 			      struct abt_request *req, 
@@ -341,14 +396,18 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_create_cat_rpc(abt, c, req, hdr);		
 		break;
 	}
-	
 	case ABT_FORK:
 	{
 		AB_INFO("arbiter: fork rpc received. req no=%d.\n", req->pkt_sn);
 		handle_fork_rpc(abt, c, req, hdr);		
 		break;
 	}
-	
+	case ABT_PTHREAD_JOIN:
+	{
+		AB_INFO("arbiter: pthread_join rpc received. req no=%d.\n", req->pkt_sn);
+		handle_pthread_join_rpc(abt, c, req, hdr);		
+		break;
+	}
 	case ABT_MALLOC:
 	{
 		AB_INFO("arbiter: malloc rpc received. req no=%d.\n", req->pkt_sn);

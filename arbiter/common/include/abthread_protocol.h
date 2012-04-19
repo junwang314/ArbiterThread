@@ -9,6 +9,7 @@
 //OPcode for abt and client communication
 enum abt_opcode {
 	ABT_FORK,
+	ABT_PTHREAD_JOIN,
 	ABT_MALLOC,
 	ABT_FREE,
 	ABT_CREATE_CAT,
@@ -62,6 +63,11 @@ struct abreq_pthread_create{
 	uint64_t ownership;
 	uint32_t pid;
 };*/
+
+struct abreq_pthread_join{
+	struct rpc_header hdr;
+	uint32_t pid;
+};
 
 struct abreq_malloc {
 	struct rpc_header hdr;

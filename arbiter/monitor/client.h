@@ -35,4 +35,8 @@ struct client_desc *arbiter_lookup_client(struct arbiter_thread *abt,
 					  char *unix_addr, 
 					  uint32_t addr_len);
 
+struct client_desc *arbiter_lookup_client_pid(struct arbiter_thread *abt, 
+					      uint32_t pid);
+
+void *arbiter_del_client(struct arbiter_thread *abt, struct client_desc *c);
 #endif //_CLIENT_H
