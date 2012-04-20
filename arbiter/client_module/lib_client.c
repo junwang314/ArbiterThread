@@ -210,6 +210,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
 	struct pre_arg _pre_arg;
+	char *stack = (char *)mmap(NULL, 4096*4, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 	//now clone a child thread
 	_pre_arg.start_routine = start_routine;
@@ -217,7 +218,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	_pre_arg.L = L;
 	_pre_arg.O = O;
 
-	pid = clone(_pre_start_routine, NULL, CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
+	pid = clone(_pre_start_routine, (void *)(stack + 4096*4 - 1) , CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
 
 	AB_DBG("ab_pthread_create: pid = %d\n", pid);
 	if (pid < 0) {
