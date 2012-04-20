@@ -181,11 +181,21 @@ pid_t ab_fork(label_t L, own_t O)
 	return pid;
 }
 
+
+static volatile void get_big()
+{
+	volatile int arr[4098];
+	AB_DBG("write to %lx\n", &arr[4097]);
+	arr[4097] = 1;
+}
+
+
 static int _pre_start_routine(void *_pre_arg)
 {
 	void * (*start_routine)(void *);
 	void *arg;
 	cat_t *L, *O;
+	int rc;
 	struct pre_arg *_p = _pre_arg;
 
 	AB_DBG("_pre_start_routine begins\n");
@@ -194,12 +204,24 @@ static int _pre_start_routine(void *_pre_arg)
 	L = _p->L;
 	O = _p->O;
 
+	AB_DBG("setting up stack guard page at %lx.\n", _p->gdpage_start);
+	rc = mprotect((void *)_p->gdpage_start, 4096, PROT_NONE);
+	assert(!rc);
+
+	//try trigger the fault
+	//get_big();
+
 	absys_thread_control(AB_SET_ME_SPECIAL);
 	AB_DBG("set %d as special\n", getpid());
 	init_client_state(L, O);
 	(*start_routine)(arg);
 	exit(0);
 }
+
+
+
+#define ABTHREAD_STACK_SIZE (4*4096)
+
 
 int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		      void * (*start_routine)(void *), void *arg,
@@ -210,17 +232,27 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
 	struct pre_arg _pre_arg;
-	char *stack = (char *)mmap(NULL, 4096*4, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
+	unsigned long stack_high, gdpage_start;
+	//two extras: one for guard page and one for alignment
+	unsigned long alloc_size = ABTHREAD_STACK_SIZE + 2*4096;
+
+	char *stack = (char *)mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+	assert(stack != MAP_FAILED);
+
+	stack_high = (((unsigned long)stack + alloc_size) & 0xfffff000) - 32;
+	
 	//now clone a child thread
 	_pre_arg.start_routine = start_routine;
 	_pre_arg.arg = arg;
 	_pre_arg.L = L;
 	_pre_arg.O = O;
+	_pre_arg.gdpage_start = (((unsigned long)stack + alloc_size) & 0xfffff000) - ABTHREAD_STACK_SIZE - 4096;
 
-	pid = clone(_pre_start_routine, (void *)(stack + 4096*4 - 1) , CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
+	pid = clone(_pre_start_routine, (void *)(stack_high) , CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
 
-	AB_DBG("ab_pthread_create: pid = %d\n", pid);
+	AB_DBG("ab_pthread_create: pid = %d, stack = %lx\n", pid, stack_high);
 	if (pid < 0) {
 		AB_MSG("ab_pthread_create() failed! %s\n", strerror(errno));
 		return -1;

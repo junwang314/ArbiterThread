@@ -29,6 +29,7 @@ struct pre_arg {
 	void *arg;
 	cat_t *L;
 	cat_t *O;
+	unsigned long gdpage_start;
 };
 
 void init_client_state(label_t, own_t);
