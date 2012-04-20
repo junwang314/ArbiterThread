@@ -18,7 +18,7 @@
 #include <lib_client.h>
 
 //number of child thread
-#define NUM_THREADS 1
+#define NUM_THREADS 4
 
 //DEMO
 //#define DEMO
@@ -123,17 +123,18 @@ struct child_arg {
 
 void * child_func(void *arg)
 {
+	void *ret;
+	int buf;
+	unsigned long addr;
+	int j;
+	
+	// test code for ab_pthread_create() and ab_pthread_join()
 	struct child_arg *arg_p;
 	arg_p = (struct child_arg *)arg;
 	unsigned long _addr = arg_p->_addr;
 	void *addr_to_map = arg_p->addr_to_map;
 	int i = arg_p->i;
 
-	void *ret;
-	int buf;
-	unsigned long addr;
-	int j;
-	
 	//wait parent 
 	sleep(5);
 
@@ -144,7 +145,6 @@ void * child_func(void *arg)
 
 		//*(unsigned long *)_addr = 0xdeadbeef;
 		//printf("child B: *_addr = %lx\n", *(unsigned long *)_addr);		
-
 		//test code for pthread mutex
 		pthread_mutex_t *mutex;
 		pthread_mutexattr_t attr;
@@ -240,8 +240,9 @@ void * child_func(void *arg)
 	*p = a; //write
 	printf("[PID %lu] write to addr (%lx): %lx\n",(unsigned long)getpid(), (unsigned long)p, *p);
 */
+	//return;
+	//sleep(30);
 	return;
-	//sleep(1000);
 }
 
 
@@ -286,7 +287,7 @@ int client_test()
 	Pthread_condattr_setpshared(&condattr, PTHREAD_PROCESS_SHARED);
 	Pthread_cond_init(cond, &condattr);
 
-	// test code for ab_pthread_create()
+	// test code for ab_pthread_create() and ab_pthread_join()
 	pthread_t tid[NUM_THREADS];
 	struct child_arg tdata[NUM_THREADS];
 	
@@ -297,28 +298,23 @@ int client_test()
 			tdata[i].i = i;
 			ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], L1, O);
 		}
-		if (i == 1)
-			pid[i] = ab_fork(L2, O);
-		if (i == 2)
-			pid[i] = ab_fork((label_t){}, (own_t){});
-		if (i == 3)
-			pid[i] = ab_fork((label_t){}, O_self);
-		if (pid[i] < 0) {
-			perror("thread cannot be created.\n");
-			exit(0);
+		if (i == 1) {
+			tdata[i].i = i;
+			ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], L2, O);
 		}
-		/*if (pid[i] == 0) {
-			printf("child process %i created, pid = %lu.\n",
-				 i, (unsigned long)getpid());
-			child_func(addr, (void *)mutex, L1, L2, i);
-			exit(0);
-		}*/
+		if (i == 2) {
+			tdata[i].i = i;
+			ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], (label_t){}, (own_t){});
+		}
+		if (i == 3) {
+			tdata[i].i = i;
+			ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], (label_t){}, O);
+		}
 	}
 	//wait some time for all the child to start
 	//sleep(10);
 	//printf("child A: addr = %lx\n", *(unsigned long *)addr);
 	//*(unsigned long *)addr = 0xdeadbeef;
-
 	// test code for pthread mutex
 	AB_DBG("child A: mutex = %p\n", mutex);
 	AB_DBG("child A: ");
@@ -394,7 +390,9 @@ int client_test()
 			printf("wait pid returns with status %d\n", status);
 	}
 */	
+	// test code for ab_pthread_create() and ab_pthread_join()
 	for (i = 0; i < NUM_THREADS; ++i) {
+		AB_DBG("main: tid[%d] = %d\n", i, tid[i]);
 		if (ab_pthread_join(tid[i], NULL) == 0) {
 			normal++;
 		}

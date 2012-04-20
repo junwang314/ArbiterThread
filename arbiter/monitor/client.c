@@ -51,9 +51,9 @@ static bool _cmp_client_pid(const void *key, const void* data)
 	struct client_desc *c = (struct client_desc *)data;
 
 	if (c->pid == *(uint32_t *)key)
-		return false;
-	else
 		return true;
+	else
+		return false;
 }
 
 struct client_desc *arbiter_lookup_client_pid(struct arbiter_thread *abt, 

@@ -92,6 +92,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		break;
 	}
 	
+	AB_DBG("rc = %d\n", rc);
 	//reply must be from abt
 	assert(rc == sizeof(struct abt_reply_header));
 
@@ -146,7 +147,7 @@ pid_t ab_fork(label_t L, own_t O)
 	pid = fork();
 	
 	if (pid < 0) {
-		AB_MSG("Fork failed\n");
+		AB_MSG("ab_fork: fork failed\n");
 	}
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
@@ -169,10 +170,10 @@ pid_t ab_fork(label_t L, own_t O)
 		assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 		assert(rply.msg_len == sizeof(rply));
 	
-		if (rply.return_val) //arbiter failed to register 
+		if (rply.return_val) { //arbiter failed to register 
+			AB_MSG("ab_fork: aribter failed to register\n");
 			return -1;
-
-		//return pid;
+		}
 	}
 	return pid;
 }
@@ -197,12 +198,14 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		absys_thread_control(AB_SET_ME_SPECIAL);
 		AB_DBG("set %d as special\n", getpid());
 		init_client_state(L, O);
-		*thread = getpid();
 		(*start_routine)(arg);
 		exit(0);
 	}
 	if (pid > 0){ //parent thread 
 		sleep(1); //FIXME wait for child to join in order to update its mapping 
+
+		*thread = pid;
+		AB_DBG("ab_pthread_create: *thread = %d\n", (int)*thread);
 
 		//prepare the header 
 		req.hdr.abt_magic = ABT_RPC_MAGIC; 
@@ -220,8 +223,6 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	
 		if (rply.return_val) //arbiter failed to register 
 			return -1;
-
-		//return pid;
 	}
 	return 0;
 }
@@ -240,6 +241,7 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 	req.hdr.opcode = ABT_PTHREAD_JOIN;
 
 	req.pid = (uint32_t) thread;
+	AB_DBG("ab_pthread_join: thread = %d\n", (int)thread);
 
 	_client_rpc(state, &req.hdr, &rply);
 
@@ -247,6 +249,7 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 	assert(rply.msg_len == sizeof(rply));
 
+	AB_DBG("ab_pthread_join: rply.return_val=%d\n", rply.return_val);
 	if(rply.return_val == 0) {
 		wpid = waitpid((pid_t) thread, &status, __WCLONE|__WALL);
 		//FIXME for debug purpose, no need to be so complicated
@@ -254,21 +257,22 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 			return -1;
 		}
 		if(WIFEXITED(status)) {
-			printf("child %lu exited normally.\n", 
+			AB_DBG("child %lu exited normally.\n", 
 			       (unsigned long)wpid);
 			return 0;
 		}
 		if(WIFSIGNALED(status)) {
-			printf("child %lu terminated by a signal.\n",
+			AB_DBG("child %lu terminated by a signal.\n",
 			       (unsigned long)wpid);
 			return 0;
 		}
 		else {
-			printf("wait pid returns with status %d\n", status);
+			AB_DBG("wait pid returns with status %d\n", status);
 			return 0;
 		}
 	}
 	else {	//pid not found in the control group
+		AB_MSG("ERROR: ab_pthread_join() failure!\n");
 		return -1;
 	}
 }

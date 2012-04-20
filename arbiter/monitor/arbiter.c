@@ -69,6 +69,7 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 		rply.return_val = -1; //-1 indicate failure
 
 	//report voilation
+		AB_MSG("Security Voilation: handle_fork_rpc\n");
 		
 		abt_sendreply(abt, req, &rply);
 		return;
@@ -96,8 +97,8 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	//add new thread to linked list	
 	list_insert_tail(&(arbiter.client_list), (void *)c_new);
 	
-	//AB_DBG("new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
-	//	c_new->pid, c_new->label, c_new->ownership);
+	AB_DBG("new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
+		c_new->pid, (long int)c_new->label, (long int)c_new->ownership);
 	
 	//set up or update page tables for existing allocated memory
 	malloc_update(c_new);
@@ -123,9 +124,11 @@ static void handle_pthread_join_rpc(struct arbiter_thread *abt,
 	AB_INFO("Processing pthread_join \n");
 	
 	c_join = arbiter_lookup_client_pid(abt, pjoinreq->pid);
+	AB_DBG("handle_pthread_join: pid = %d\n", pjoinreq->pid);
+	
 	//check if the joining child belongs to the control group
 	if (c_join == NULL ) {
-		AB_MSG("arbiter: unknown client\n");
+		AB_MSG("handle_pthread_join_rpc: unknown client\n");
 		rply.abt_reply_magic = ABT_RPC_MAGIC;
 		rply.msg_len = sizeof(rply);
 		rply.return_val = -1; //-1 indicate failure
@@ -145,13 +148,16 @@ static void handle_pthread_join_rpc(struct arbiter_thread *abt,
 		rply.return_val = -1; //-1 indicate failure
 
 	//report voilation
+		AB_MSG("Security Voilation: handle_pthread_join_rpc\n");
 		
 		abt_sendreply(abt, req, &rply);
 		return;
 	}
 
-	//AB_DBG("thread joined: pid=%d, label=%lx, ownership=%lx\n", 
-	//	c_join->pid, c_join->label, c_join->ownership);
+	AB_DBG("thread calling join: &c=%p, pid=%d, label=%lx, ownership=%lx\n", 
+		c, c->pid, (long int)c->label, (long int)c->ownership);
+	AB_DBG("thread join: &c%p, pid=%d, label=%lx, ownership=%lx\n", 
+		c_join, c_join->pid, (long int)c_join->label, (long int)c_join->ownership);
 	
 	//deallocate c_join
 	arbiter_del_client(abt, c_join); //remove from linked list
@@ -515,7 +521,7 @@ int main()
 {
 	pid_t pid;
        	int rc;
-       	void *addr = 0x80000000;
+       	void *addr = (void *)0x80000000;
 
 	pid = fork();
 	assert(pid >= 0);
