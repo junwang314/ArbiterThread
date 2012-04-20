@@ -392,7 +392,7 @@ int client_test()
 */	
 	// test code for ab_pthread_create() and ab_pthread_join()
 	for (i = 0; i < NUM_THREADS; ++i) {
-		AB_DBG("main: tid[%d] = %d\n", i, tid[i]);
+		AB_DBG("main: tid[%d] = %d\n", i, (int)tid[i]);
 		if (ab_pthread_join(tid[i], NULL) == 0) {
 			normal++;
 		}

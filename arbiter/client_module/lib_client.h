@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
+#include <ab_api.h>
 
 //run-time state of the client
 struct abrpc_client_state {
@@ -22,6 +23,13 @@ struct abrpc_client_state {
 
 };
 
+//tramponline parameter for clone() implemented ab_pthread_create()
+struct pre_arg {
+	void * (*start_routine)(void *);
+	void *arg;
+	cat_t *L;
+	cat_t *O;
+};
 
 void init_client_state(label_t, own_t);
 

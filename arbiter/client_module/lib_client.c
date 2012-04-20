@@ -6,8 +6,9 @@
 #include <sys/types.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h> /* exit() */
-#include <sys/wait.h> /* waitpid() */
+#include <stdlib.h>	/* exit() */
+#include <sys/wait.h>	/* waitpid() */
+#include <sched.h>	/* clone() */
 
 #include <abthread_protocol.h>
 #include <ab_api.h>
@@ -15,6 +16,8 @@
 #include <ab_os_interface.h>
 
 #include "lib_client.h"
+
+#define _GNU_SOURCE	/* clone() */
 
 /**************** socket IPC *******************/
 
@@ -178,9 +181,78 @@ pid_t ab_fork(label_t L, own_t O)
 	return pid;
 }
 
+static int _pre_start_routine(void *_pre_arg)
+{
+	void * (*start_routine)(void *);
+	void *arg;
+	cat_t *L, *O;
+	struct pre_arg *_p = _pre_arg;
+
+	AB_DBG("_pre_start_routine begins\n");
+	start_routine = _p->start_routine;
+	arg = _p->arg;
+	L = _p->L;
+	O = _p->O;
+
+	absys_thread_control(AB_SET_ME_SPECIAL);
+	AB_DBG("set %d as special\n", getpid());
+	init_client_state(L, O);
+	(*start_routine)(arg);
+	exit(0);
+}
+
 int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		      void * (*start_routine)(void *), void *arg,
 		      label_t L, own_t O)
+{
+	pid_t pid;
+	struct abreq_fork req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+	struct pre_arg _pre_arg;
+
+	//now clone a child thread
+	_pre_arg.start_routine = start_routine;
+	_pre_arg.arg = arg;
+	_pre_arg.L = L;
+	_pre_arg.O = O;
+
+	pid = clone(_pre_start_routine, NULL, CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
+
+	AB_DBG("ab_pthread_create: pid = %d\n", pid);
+	if (pid < 0) {
+		AB_MSG("ab_pthread_create() failed! %s\n", strerror(errno));
+		return -1;
+	}
+
+	sleep(1); //FIXME wait for child to join in order to update its mapping 
+
+	*thread = pid;
+	AB_DBG("ab_pthread_create: *thread = %d\n", (int)*thread);
+
+	//prepare the header 
+	req.hdr.abt_magic = ABT_RPC_MAGIC; 
+	req.hdr.msg_len = sizeof(req); 
+	req.hdr.opcode = ABT_FORK; 
+
+	req.label = *(uint64_t *) L;
+	req.ownership = *(uint64_t *) O;
+	req.pid = (uint32_t)pid;
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+	
+	if (rply.return_val) //arbiter failed to register 
+		return -1;
+	
+	return 0;
+}
+
+int ab_pthread_create_old(pthread_t *thread, const pthread_attr_t *attr,
+			  void * (*start_routine)(void *), void *arg,
+			  label_t L, own_t O)
 {
 	pid_t pid;
 	struct abreq_fork req;
