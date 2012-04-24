@@ -24,7 +24,7 @@
 //#define DEMO
 //#define DEMO2
 
-//pthread_mutex_t *mutex;
+pthread_mutex_t mmutex;
 pthread_cond_t *cond;
 
 // wrappers for Pthread cond operation
@@ -113,6 +113,10 @@ static void debug_mutex(pthread_mutex_t *mutex)
 	return;
 }
 
+unsigned long global_uninit;
+unsigned long global_init = 0xdeadbeef;
+pthread_mutex_t *mutex = &mmutex;
+
 struct child_arg {
 	unsigned long _addr;
 	void *addr_to_map;
@@ -146,10 +150,10 @@ void * child_func(void *arg)
 		//*(unsigned long *)_addr = 0xdeadbeef;
 		//printf("child B: *_addr = %lx\n", *(unsigned long *)_addr);		
 		//test code for pthread mutex
-		pthread_mutex_t *mutex;
-		pthread_mutexattr_t attr;
+		//pthread_mutex_t *mutex = &mmutex;
+		//pthread_mutexattr_t attr;
 
-		mutex = (pthread_mutex_t *)addr_to_map;
+		//mutex = (pthread_mutex_t *)addr_to_map;
 		AB_DBG("child B: mutex = %p\n", mutex);
 		for (j = 0; j < 1; j++) {
 			AB_DBG("child B: ");
@@ -158,6 +162,12 @@ void * child_func(void *arg)
 		}
 		Pthread_mutex_lock(mutex);
 		printf("child B: doing somthing\n");
+		printf("child B: global_uninit=%lx\n", global_uninit);
+		printf("child B: global_init=%lx\n", global_init);
+		//global_init = 0xdead0000;
+		//global_uninit = 0xdead0000;
+		//printf("child B: updated global_uninit=%lx\n", global_uninit);
+		//printf("child B: updated global_init=%lx\n", global_init);
 		//Pthread_cond_signal(cond);
 		Pthread_mutex_unlock(mutex);
 #endif
@@ -273,13 +283,17 @@ int client_test()
 	print_label(O_self);
 */
 	// test code for pthread mutex and condition variable
-	pthread_mutex_t *mutex;
+	//pthread_mutex_t *mutex = &mmutex;
 	pthread_mutexattr_t attr;
 	
-	mutex = (pthread_mutex_t *)ab_malloc(sizeof(pthread_mutex_t), L1);
+	//mutex = (pthread_mutex_t *)ab_malloc(sizeof(pthread_mutex_t), L1);
+	AB_DBG("point 1\n");
 	Pthread_mutexattr_init(&attr);
+	AB_DBG("point 2\n");
 	Pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+	AB_DBG("point 3\n");
 	Pthread_mutex_init(mutex, &attr);
+	AB_DBG("point 4\n");
 
 	cond = (pthread_cond_t *)ab_malloc(sizeof(pthread_cond_t), L1);
 	pthread_condattr_t condattr;
@@ -294,7 +308,7 @@ int client_test()
 	for (i = 0; i < NUM_THREADS; ++i) {
 		if (i == 0) {
 			tdata[i]._addr = addr;
-			tdata[i].addr_to_map = (void *)mutex;
+			tdata[i].addr_to_map = (void *)(mutex);
 			tdata[i].i = i;
 			ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], L1, O);
 		}
@@ -324,6 +338,12 @@ int client_test()
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
 	printf("child A: doing somthing\n");
+	printf("child A: global_uninit=%lx\n", global_uninit);
+	printf("child A: global_init=%lx\n", global_init);
+	global_init = 0xdead0000;
+	global_uninit = 0xdead0000;
+	printf("child A: updated global_uninit=%lx\n", global_uninit);
+	printf("child A: updated global_init=%lx\n", global_init);
 	sleep(10);	
 	Pthread_mutex_unlock(mutex);	
 	AB_DBG("child A: ");

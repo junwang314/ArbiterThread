@@ -26,32 +26,37 @@ static inline int alloc_category(void)
 
 static inline int get_category(struct task_struct *tsk)
 {
-	return tsk->ab_identity >> AB_CATEGORY_SHIFT;
+	return (tsk->ab_identity >> AB_CATEGORY_SHIFT);
 }
 
 static inline int get_role(struct task_struct *tsk)
 {
-	return tsk->ab_identity & AB_ROLE_MASK;
+	return (tsk->ab_identity & AB_ROLE_MASK);
 }
 
 static inline int is_arbiter(struct task_struct *tsk)
 {
 	return get_role(tsk);
 }
-
+/*
 static inline int is_special(struct task_struct *tsk)
 {
 	return (~get_role(tsk)) & AB_ROLE_MASK;
 }
-
+*/
 static inline int is_common(struct task_struct *tsk) /* neither arbiter nor special */
 {
-	return get_category(tsk) != 0;
+	return (!get_category(tsk));
+}
+
+static inline int is_special(struct task_struct *tsk)
+{
+	return  (!is_arbiter(tsk) && !is_common(tsk));
 }
 
 static inline int convert_to_identity(int ab_category, int ab_role)
 {
-	return (ab_category << AB_CATEGORY_SHIFT) | ab_role;
+	return ((ab_category << AB_CATEGORY_SHIFT) | ab_role);
 }
 
 static inline struct task_struct *find_my_arbiter(struct task_struct *tsk)

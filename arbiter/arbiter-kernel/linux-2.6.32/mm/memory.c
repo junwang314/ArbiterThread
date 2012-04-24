@@ -67,6 +67,7 @@
 #include "internal.h"
 
 #include <linux/abt_common.h>
+#include <linux/absys_thread_control.h>
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 /* use the per-pgdat data instead for discontigmem - mbligh */
@@ -616,8 +617,13 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	 * in the parent and the child
 	 */
 	if (is_cow_mapping(vm_flags)) {
-		ptep_set_wrprotect(src_mm, addr, src_pte);
-		pte = pte_wrprotect(pte);
+		if (is_special(current) && (src_mm->start_data <= addr) && (addr < src_mm->end_data)) {
+			ab_assert(current == src_mm->owner);
+		}
+		else {
+			ptep_set_wrprotect(src_mm, addr, src_pte);
+			pte = pte_wrprotect(pte);
+		}
 	}
 
 	/*

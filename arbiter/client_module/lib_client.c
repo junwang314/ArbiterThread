@@ -107,17 +107,23 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 
 /************ Client state descriptor **************/
 
-struct abrpc_client_state _abclient;
+#define CLIENT_STATE_ADDR	0xa0000000
+//struct abrpc_client_state _abclient;
 
 static inline struct abrpc_client_state *get_state()
 {
 	//need lock in future?
-	return &_abclient;
+	//return &_abclient;
+	return (struct abrpc_client_state *)CLIENT_STATE_ADDR;
 }
 
 void init_client_state(label_t L, own_t O)
 {
-	struct abrpc_client_state *cli_state = get_state();
+	//struct abrpc_client_state *cli_state = get_state();
+	struct abrpc_client_state *cli_state;
+
+	cli_state = (struct abrpc_client_state *)mmap(CLIENT_STATE_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+	assert(cli_state != MAP_FAILED);
 
 	cli_state->pid = (int) getpid();
 	if (L != NULL) {
