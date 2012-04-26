@@ -64,6 +64,9 @@
 
 #include "rtmutex_common.h"
 
+#include <linux/abt_common.h>
+#include <linux/absys_thread_control.h>
+
 int __read_mostly futex_cmpxchg_enabled;
 
 #define FUTEX_HASHBITS (CONFIG_BASE_SMALL ? 4 : 8)
@@ -268,9 +271,22 @@ again:
 	 * the object not the particular process.
 	 */
 	if (PageAnon(page)) {
-		key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
-		key->private.mm = mm;
-		key->private.address = address;
+		if (is_special(current) && (mm->start_data <= address) 
+			&& (address < mm->end_data)) {
+			//Arbiter: handle mutex declared on global data segment	
+			struct mm_struct *mm_arbiter;
+			mm_arbiter = find_my_arbiter(current)->mm;
+			ab_assert(mm_arbiter != NULL);
+
+			key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
+			key->private.mm = mm_arbiter;
+			key->private.address = address;
+		}
+		else {
+			key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
+			key->private.mm = mm;
+			key->private.address = address;
+		}
 	} else {
 		key->both.offset |= FUT_OFF_INODE; /* inode-based key */
 		key->shared.inode = page->mapping->host;

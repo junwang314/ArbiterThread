@@ -38,7 +38,7 @@ LABELTEST_SRCS=\
 LIB_COMMON=$(AB_ROOT)/common/lib/
 
 LIB_COMMON_OBJS=\
-	linked_list.o
+	$(BUILD)/linked_list.o
 
 ARBITER_OBJS=\
 	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(ARBITER_SRCS))) $(LIB_COMMON_OBJS)
