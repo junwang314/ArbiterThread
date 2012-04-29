@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <libmemcached/memcached.h>
+#include <unistd.h>
 
 void main()
 {
@@ -36,6 +37,7 @@ void main()
 			printf("ERROR: memcached_set failure!\n");
 			return;
 		}
+		sleep(1);
 	}
 
 	//fetching values
@@ -74,6 +76,7 @@ void main()
 		else
 			printf("%s: %s\n", keys[i], return_value);
 		free(return_value);
+		sleep(1);
 	}
 	
 	//disconnecting from the server	

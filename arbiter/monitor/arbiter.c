@@ -17,6 +17,8 @@
 #include "ablib_malloc.h" /* ablib_malloc(), ablib_free() */
 //#include "lib_client.h"
 
+extern char **environ;
+
 /***********************************************************************/
 static void handle_create_cat_rpc(struct arbiter_thread *abt,
 				  struct client_desc *c,
@@ -514,8 +516,9 @@ void init_first_child(pid)
 }
 
 
-#define APP_EXECUTABLE "../application"
-
+//#define APP_EXECUTABLE "../application"
+#define APP_EXECUTABLE "../memcached"
+#define APP_ARGUMENT "-vv"
 
 int main()
 {
@@ -530,15 +533,16 @@ int main()
 		sleep(2);
 		
 		//launch the application, currently we do not care about command line args
-		rc = execv(APP_EXECUTABLE, NULL);
-		perror("app launch failed.\n");
+		char *const arg[] = {APP_EXECUTABLE, APP_ARGUMENT, NULL};
+		rc = execv(APP_EXECUTABLE, arg);
+		perror("arbiter: app launch failed.\n");
 		assert(rc);
 	}
 
 	if (pid > 0){ //arbiter
 		absys_thread_control(AB_SET_ME_ARBITER);
 		init_arbiter_thread(&arbiter);
-		AB_DBG("child pid: %d\n", pid);
+		AB_DBG("arbiter: child pid %d\n", pid);
 		//init client metadata @ arbiter side
 		init_first_child(pid);
 		//server routine
