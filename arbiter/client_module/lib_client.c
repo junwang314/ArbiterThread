@@ -122,7 +122,7 @@ void init_client_state(label_t L, own_t O)
 	//struct abrpc_client_state *cli_state = get_state();
 	struct abrpc_client_state *cli_state;
 
-	cli_state = (struct abrpc_client_state *)mmap(CLIENT_STATE_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+	cli_state = (struct abrpc_client_state *)mmap((void *)CLIENT_STATE_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 	assert(cli_state != MAP_FAILED);
 
 	cli_state->pid = (int) getpid();
@@ -552,3 +552,24 @@ void *ab_calloc(size_t nmemb, size_t size, label_t L)
 	return (void *)rply.return_val;
 }
 
+void *ab_realloc(void *ptr, size_t size)
+{
+	struct abreq_realloc req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_REALLOC;
+
+	req.addr = (uint32_t)ptr;
+	req.size = (uint32_t)size;
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+	
+	return (void *)rply.return_val;
+}

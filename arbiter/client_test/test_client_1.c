@@ -277,23 +277,23 @@ int client_test()
 	printf("child A malloc: %lx\n", addr);
 	//printf("addr = %lx\n", *(unsigned long *)addr);
 	//*(unsigned long *)addr = 0x12345678;
-	
+
+	// test code for ab_realloc()
+	addr = (unsigned long)ab_malloc(11*4096, L2);
+	printf("child A malloc: %lx\n", addr);
+	addr = (unsigned long)ab_realloc((void *)addr, 12*4096);
+	printf("child A realloc: %lx\n", addr);
+
 	// test code for get_ownership()
 /*	get_ownership(O_self);
 	print_label(O_self);
 */
 	// test code for pthread mutex and condition variable
-	//pthread_mutex_t *mutex = &mmutex;
-	pthread_mutexattr_t attr;
-	
 	//mutex = (pthread_mutex_t *)ab_malloc(sizeof(pthread_mutex_t), L1);
-	AB_DBG("point 1\n");
+	pthread_mutexattr_t attr;
 	Pthread_mutexattr_init(&attr);
-	AB_DBG("point 2\n");
 	Pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-	AB_DBG("point 3\n");
 	Pthread_mutex_init(mutex, &attr);
-	AB_DBG("point 4\n");
 
 	cond = (pthread_cond_t *)ab_malloc(sizeof(pthread_cond_t), L1);
 	pthread_condattr_t condattr;
@@ -391,6 +391,7 @@ int client_test()
 	get_mem_label((void *)addr, L_test);
 	print_label(L_test);
 */	
+
 	
 /*	while(1) {
 		wpid = waitpid(-1, &status, 0);

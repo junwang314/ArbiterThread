@@ -365,6 +365,58 @@ static void handle_calloc_rpc(struct arbiter_thread *abt,
 
 }
 
+static void handle_realloc_rpc(struct arbiter_thread *abt,
+			       struct client_desc *c,
+			       struct abt_request *req, 
+			       struct rpc_header *hdr)
+{
+	void *ptr, *rval;
+	size_t size;
+	pid_t pid;
+	ustate unit;
+	label_t L1, L2;
+	own_t O1;
+	struct abt_reply_header rply;
+	struct abreq_realloc *reallocreq = (struct abreq_realloc *)hdr;
+	AB_INFO("Processing realloc, addr = %lx\n", (unsigned long)reallocreq->addr);
+
+	pid = (pid_t)(c->pid);
+	*(uint64_t *)L1 = c->label;
+	*(uint64_t *)O1 = c->ownership;
+
+	ptr = (void *)(reallocreq->addr);
+	size = reallocreq->size;
+	if (ptr != NULL) {
+		unit = lookup_ustate_by_mem(ptr);
+		assert(unit != NULL);
+		memcpy(L2, unit->unit_av->label, sizeof(label_t));
+	}
+	else {
+		*(uint64_t *)L2 = c->label; //in order to pass label check
+	}
+	
+	//label check	
+	if ( check_label(L1, O1, L2, NULL) ) {
+		rply.abt_reply_magic = ABT_RPC_MAGIC;
+		rply.msg_len = sizeof(rply);
+
+		//report voilatioin
+		AB_MSG("VOILATION: realloc voilation!\n");
+	
+		abt_sendreply(abt, req, &rply);
+		return;
+	}
+	
+	rval = (void *)ablib_realloc(pid, ptr, size, L2);
+	
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = (uint32_t)rval;
+
+	abt_sendreply(abt, req, &rply);
+
+
+}
 
 static void handle_client_rpc(struct arbiter_thread *abt, 
 			      struct abt_request *req)
@@ -456,6 +508,14 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_calloc_rpc(abt, c, req, hdr);
 		break;
 	}
+	case ABT_REALLOC:
+	{
+		AB_INFO("arbiter: realloc rpc received. req no=%d.\n", req->pkt_sn);
+
+		//the handling routine
+		handle_realloc_rpc(abt, c, req, hdr);
+		break;
+	}
 
 	default:
 		AB_MSG("arbiter rpc: Invallid OP code!\n");
@@ -516,9 +576,10 @@ void init_first_child(pid)
 }
 
 
-//#define APP_EXECUTABLE "../application"
-#define APP_EXECUTABLE "../memcached"
-#define APP_ARGUMENT "-vv"
+#define APP_EXECUTABLE "../application"
+#define APP_ARGUMENT NULL
+//#define APP_EXECUTABLE "../memcached"
+//#define APP_ARGUMENT "-vv"
 
 int main()
 {

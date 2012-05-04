@@ -21,7 +21,8 @@ ARBITER_SRCS=\
 	label.c \
 	ablib_brk.c \
 	ablib_sbrk.c \
-	ablib_calloc.c
+	ablib_calloc.c \
+	ablib_realloc.c
 
 ABTEST_SRCS=\
 	ablib_malloc.c \

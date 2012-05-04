@@ -745,7 +745,7 @@ void *ablib_malloc(pid_t pid, size_t bytes, label_t L)
 	void *		sysmem;
 	void *		retval;
 
-	AB_INFO("ablib_malloc called: arguments = (%d, %d, %lx, %lx)\n", pid, bytes, *(unsigned long *)L, (void *)L);
+	AB_INFO("ablib_malloc called: arguments = (%d, %d, %lx)\n", pid, bytes, *(unsigned long *)L);
 	//get av
 	av = lookup_mstate_by_label(L);
 

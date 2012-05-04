@@ -16,7 +16,8 @@ enum abt_opcode {
 	ABT_GET_LABEL,
 	ABT_GET_OWNERSHIP,
 	ABT_GET_MEM_LABEL,
-	ABT_CALLOC
+	ABT_CALLOC,
+	ABT_REALLOC
 };
 
 #define ABT_RPC_MAGIC      0xABC0DE
@@ -103,5 +104,11 @@ struct abreq_calloc {
 	uint32_t nmemb;
 	uint32_t size;
 	uint64_t label;
+};
+
+struct abreq_realloc {
+	struct rpc_header hdr;
+	uint32_t addr;	
+	uint32_t size;
 };
 #endif //_ABTHREAD_PROTOCAL_H

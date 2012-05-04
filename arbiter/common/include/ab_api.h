@@ -47,8 +47,11 @@ void ab_free(void *ptr);
 /* get the label of a memory object */
 void get_mem_label(void *ptr, label_t L);
 
-/* memory allocation */
+/* allocate memory for an array of nmemb elements of size bytes each */
 void *ab_calloc(size_t nmemb, size_t size, label_t L);
+
+/* change the size of the memory block pointed by ptr to size bytes */
+void *ab_realloc(void *ptr, size_t size);
 
 static void print_label(label_t L)
 {
