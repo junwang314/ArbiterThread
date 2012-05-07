@@ -32,6 +32,9 @@ int ab_pthread_create_old(pthread_t *thread, const pthread_attr_t *attr,
 /* wait for thread termination */
 int ab_pthread_join(pthread_t thread, void **value_ptr);
 
+/* get the calling thread ID (pid) */
+pthread_t ab_pthread_self(void);
+
 /* get label of itself into L */
 void get_label(label_t L);		
 

@@ -153,6 +153,9 @@ void * child_func(void *arg)
 		//pthread_mutex_t *mutex = &mmutex;
 		//pthread_mutexattr_t attr;
 
+		//test code for ab_pthread_self()
+		AB_DBG("child B: thread ID (pid) = %d\n", ab_pthread_self());
+
 		//mutex = (pthread_mutex_t *)addr_to_map;
 		AB_DBG("child B: mutex = %p\n", mutex);
 		for (j = 0; j < 1; j++) {
@@ -280,9 +283,10 @@ int client_test()
 
 	// test code for ab_realloc()
 	addr = (unsigned long)ab_malloc(11*4096, L2);
-	printf("child A malloc: %lx\n", addr);
+	*(unsigned long *)addr = 0xdeadbeef;
+	printf("child A malloc: %lx, %lx\n", addr, *(unsigned long *)addr);
 	addr = (unsigned long)ab_realloc((void *)addr, 12*4096);
-	printf("child A realloc: %lx\n", addr);
+	printf("child A realloc: %lx, %lx\n", addr, *(unsigned long *)addr);
 
 	// test code for get_ownership()
 /*	get_ownership(O_self);

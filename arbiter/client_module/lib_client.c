@@ -388,6 +388,11 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 	}
 }
 
+pthread_t ab_pthread_self(void)
+{
+	return (pthread_t)getpid();
+}
+
 void ab_free(void *ptr)
 {
 	struct abreq_free req;
