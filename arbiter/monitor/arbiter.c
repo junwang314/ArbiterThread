@@ -576,10 +576,8 @@ void init_first_child(pid)
 }
 
 
-#define APP_EXECUTABLE "../application"
-#define APP_ARGUMENT NULL
-//#define APP_EXECUTABLE "../memcached"
-//#define APP_ARGUMENT "-vv"
+//#define APP_EXECUTABLE "../application"
+#define APP_EXECUTABLE "../memcached"
 
 int main()
 {
@@ -594,7 +592,7 @@ int main()
 		sleep(2);
 		
 		//launch the application, currently we do not care about command line args
-		char *const arg[] = {APP_EXECUTABLE, APP_ARGUMENT, NULL};
+		char *const arg[] = {APP_EXECUTABLE, "-vvv", "-t1", NULL};
 		rc = execv(APP_EXECUTABLE, arg);
 		perror("arbiter: app launch failed.\n");
 		assert(rc);
