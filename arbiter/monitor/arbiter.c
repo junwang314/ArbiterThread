@@ -57,7 +57,7 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	struct client_desc *c_new;
 	struct abt_reply_header rply;
 	struct abreq_fork *forkreq = (struct abreq_fork *)hdr;
-	AB_INFO("Processing fork \n");
+	AB_INFO("Arbiter: Processing fork \n");
 	
 	*(uint64_t *)L1 = c->label;
 	*(uint64_t *)O1 = c->ownership;
@@ -71,7 +71,7 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 		rply.return_val = -1; //-1 indicate failure
 
 	//report voilation
-		AB_MSG("Security Voilation: handle_fork_rpc\n");
+		AB_MSG("Arbiter: Security Voilation: handle_fork_rpc\n");
 		
 		abt_sendreply(abt, req, &rply);
 		return;
@@ -99,7 +99,7 @@ static void handle_fork_rpc(struct arbiter_thread *abt,
 	//add new thread to linked list	
 	list_insert_tail(&(arbiter.client_list), (void *)c_new);
 	
-	AB_DBG("new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
+	AB_DBG("Arbiter: new thread forked: pid=%d, label=%lx, ownership=%lx\n", 
 		c_new->pid, (long int)c_new->label, (long int)c_new->ownership);
 	
 	//set up or update page tables for existing allocated memory

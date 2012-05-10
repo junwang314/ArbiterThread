@@ -245,6 +245,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	char *stack = (char *)mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
+	AB_DBG("ab_pthread_create(): stack=(%p, %p)\n", stack, stack+alloc_size);
 	assert(stack != MAP_FAILED);
 
 	stack_high = (((unsigned long)stack + alloc_size) & 0xfffff000) - 32;
@@ -258,7 +259,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	pid = clone(_pre_start_routine, (void *)(stack_high) , CLONE_FS | CLONE_FILES | CLONE_SYSVSEM, (void *)&_pre_arg);
 
-	AB_DBG("ab_pthread_create: pid = %d, stack = %lx\n", pid, stack_high);
+	AB_DBG("ab_pthread_create(): pid = %d, stack = %lx\n", pid, stack_high);
 	if (pid < 0) {
 		AB_MSG("ab_pthread_create() failed! %s\n", strerror(errno));
 		return -1;
@@ -267,7 +268,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	sleep(1); //FIXME wait for child to join in order to update its mapping 
 
 	*thread = pid;
-	AB_DBG("ab_pthread_create: *thread = %d\n", (int)*thread);
+	AB_DBG("ab_pthread_create(): *thread = %d\n", (int)*thread);
 
 	//prepare the header 
 	req.hdr.abt_magic = ABT_RPC_MAGIC; 

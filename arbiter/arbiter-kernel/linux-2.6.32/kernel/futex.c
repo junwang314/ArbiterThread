@@ -272,7 +272,7 @@ again:
 	 */
 	if (PageAnon(page)) {
 		if (is_special(current) && (mm->start_data <= address) 
-			&& (address < mm->end_data)) {
+			&& (address < mm->start_brk)) {
 			//Arbiter: handle mutex declared on global data segment	
 			struct mm_struct *mm_arbiter;
 			mm_arbiter = find_my_arbiter(current)->mm;

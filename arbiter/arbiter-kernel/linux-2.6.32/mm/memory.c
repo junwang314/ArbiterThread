@@ -618,7 +618,7 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	 */
 	if (is_cow_mapping(vm_flags)) {
 		if (is_special(current) && (src_mm->start_data <= addr) 
-			&& (addr < src_mm->end_data)) {
+			&& (addr < src_mm->start_brk)) {
 			//Arbiter: for the purpose of global data syncing 
 			ab_assert(current == src_mm->owner);
 		}

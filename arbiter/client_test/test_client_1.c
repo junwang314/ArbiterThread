@@ -24,8 +24,8 @@
 //#define DEMO
 //#define DEMO2
 
-pthread_mutex_t mmutex;
-pthread_cond_t *cond;
+static pthread_mutex_t mmutex;
+static pthread_cond_t *cond;
 
 // wrappers for Pthread cond operation
 void unix_error(char *msg)	// Unix-style error
@@ -113,8 +113,8 @@ static void debug_mutex(pthread_mutex_t *mutex)
 	return;
 }
 
-unsigned long global_uninit;
-unsigned long global_init = 0xdeadbeef;
+static unsigned long global_uninit;
+static unsigned long global_init = 0xdeadbeef;
 pthread_mutex_t *mutex = &mmutex;
 
 struct child_arg {
@@ -163,16 +163,18 @@ void * child_func(void *arg)
 			debug_mutex(mutex);
 			sleep(1);
 		}
-		Pthread_mutex_lock(mutex);
+		Pthread_mutex_lock(&mmutex);
 		printf("child B: doing somthing\n");
 		printf("child B: global_uninit=%lx\n", global_uninit);
 		printf("child B: global_init=%lx\n", global_init);
+		printf("child B: &global_uninit=%p\n", &global_uninit);
+		printf("child A: &global_init=%p\n", &global_init);
 		//global_init = 0xdead0000;
 		//global_uninit = 0xdead0000;
 		//printf("child B: updated global_uninit=%lx\n", global_uninit);
 		//printf("child B: updated global_init=%lx\n", global_init);
 		//Pthread_cond_signal(cond);
-		Pthread_mutex_unlock(mutex);
+		Pthread_mutex_unlock(&mmutex);
 #endif
 #ifdef DEMO
 		//child B initialize data
@@ -337,19 +339,21 @@ int client_test()
 	AB_DBG("child A: mutex = %p\n", mutex);
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
-	Pthread_mutex_lock(mutex);
+	Pthread_mutex_lock(&mmutex);
 	//Pthread_cond_wait(cond, mutex);
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
 	printf("child A: doing somthing\n");
 	printf("child A: global_uninit=%lx\n", global_uninit);
 	printf("child A: global_init=%lx\n", global_init);
+	printf("child A: &global_uninit=%p\n", &global_uninit);
+	printf("child A: &global_init=%p\n", &global_init);
 	global_init = 0xdead0000;
 	global_uninit = 0xdead0000;
 	printf("child A: updated global_uninit=%lx\n", global_uninit);
 	printf("child A: updated global_init=%lx\n", global_init);
 	sleep(10);	
-	Pthread_mutex_unlock(mutex);	
+	Pthread_mutex_unlock(&mmutex);	
 	AB_DBG("child A: ");
 	debug_mutex(mutex);
 	// test code for ablib_brk()
