@@ -481,12 +481,12 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	unsigned long rlim, retval;
 	unsigned long newbrk, oldbrk;
 	struct task_struct *tsk_target_child, *tsk;
-	struct mm_struct *mm;
+	struct mm_struct *mm_arbiter, *mm;
 	unsigned long min_brk;
 	
 	AB_INFO("absys_brk system call received. argments = (%ld, %ld,)\n", (unsigned long) childpid, ab_brk);
 
-	/* Although childpid is an argument, it is only used to look up for the ab_brk (as it is the same for all child threads) */
+	/* Although childpid is an argument, it is only used to look up for the *tsk_target_child */
 	tsk_target_child = get_child_task_by_pid(childpid);
 	AB_INFO("target child pid = %d\n", tsk_target_child->pid);
 
@@ -496,8 +496,8 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	}	
 
 	/* Do some preliminary check */
-	mm = tsk_target_child->mm;
-	down_write(&mm->mmap_sem);
+	mm_arbiter = current->mm;
+	down_write(&mm_arbiter->mmap_sem);
 	/* unnecassary code from brk()
 	#ifdef CONFIG_COMPAT_BRK
 		min_brk = mm->end_code;
@@ -505,7 +505,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 		min_brk = mm->start_brk;
 	#endif
 	*/	
-	min_brk = mm->start_ab_brk;
+	min_brk = mm_arbiter->start_ab_brk;
 	if (ab_brk < min_brk)
 		goto out;
 /* it seems that we do not need the following code, which check the against the maximum heap size */
@@ -522,12 +522,10 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 */
 	newbrk = PAGE_ALIGN(ab_brk);
 	AB_DBG("ab_brk = %lx, newbrk = %lx\n", ab_brk, newbrk);
-	oldbrk = PAGE_ALIGN(mm->ab_brk);
-	AB_DBG("mm->ab_brk = %lx, oldbrk = %lx\n", mm->ab_brk, oldbrk);
-	if (oldbrk == newbrk) {
-		up_write(&mm->mmap_sem);
+	oldbrk = PAGE_ALIGN(mm_arbiter->ab_brk);
+	AB_DBG("mm->ab_brk = %lx, oldbrk = %lx\n", mm_arbiter->ab_brk, oldbrk);
+	if (oldbrk == newbrk)
 		goto set_ab_brk;
-	}
 
 	/* TODO: Always allow shrinking ab_brk.
 	if (ab_brk <= mm->ab_brk) {
@@ -537,7 +535,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 	}*/
 
 	/* Check against existing mmap mappings, simply return if existing VMAs are in the way. */
-	up_write(&mm->mmap_sem);
+	up_write(&mm_arbiter->mmap_sem);
 	list_for_each_entry(tsk, &current->ab_tasks, ab_tasks) {
 		/* if it is arbiter thread, continue to the next loop */
 		if(tsk == current) {
@@ -547,7 +545,7 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 		down_write(&mm->mmap_sem);
 		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE)) {
 			AB_MSG("Exit from absys_brk when checking VMA intersection for child %d\n", tsk->pid);
-			goto out;
+			goto bad_out;
 		}
 		//AB_DBG("1 entered child %d\n", tsk->pid);
 		up_write(&mm->mmap_sem);
@@ -582,37 +580,25 @@ asmlinkage unsigned long sys_absys_brk(pid_t childpid, unsigned long ab_brk)
 		down_write(&mm->mmap_sem);
 		if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE)) {
 			AB_MSG("Unexpected event in absys_brk: cannot increase ab_brk due to existing VMA in child %d\n", tsk->pid);
-			goto out;
+			goto bad_out;
 		}
 		if (do_absys_brk(tsk, oldbrk, newbrk-oldbrk) != oldbrk) {
 			AB_MSG("ERROR in absys_brk: error in do_absys_brk for child %d\n", tsk->pid);
-			goto out;
+			goto bad_out;
 		}
 		//AB_DBG("2-2 entered child %d\n", tsk->pid);
 		up_write(&mm->mmap_sem);
 	}
-			 
-set_ab_brk:
-	//AB_DBG("3 entered child %d\n", tsk_target_child->pid);
-	list_for_each_entry(tsk, &current->ab_tasks, ab_tasks) {
-		/* if it is arbiter thread, continue to the next loop */
-		if(tsk == current) {
-			continue;
-		}
-		mm = tsk->mm;
-		down_write(&mm->mmap_sem);
-		mm->ab_brk = ab_brk;
-		//AB_DBG("4 entered child %d\n", tsk->pid);
-		up_write(&mm->mmap_sem);
-	}
-	AB_DBG("4 entered child %d\n", tsk_target_child->pid);
-	retval = mm->ab_brk;
-	return retval;
+	down_write(&mm_arbiter->mmap_sem);
 
-/* Unexpected event if getting here*/
+set_ab_brk:
+	mm_arbiter->ab_brk = ab_brk;
 out:
-	AB_MSG("Unexpected event in absys_brk!\n"); 
-	retval = mm->ab_brk;
+	retval = mm_arbiter->ab_brk;
+	up_write(&mm_arbiter->mmap_sem);
+	return retval;
+bad_out:
+	retval = mm_arbiter->ab_brk;
 	up_write(&mm->mmap_sem);
 	return retval;
 }

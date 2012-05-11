@@ -1272,6 +1272,7 @@ struct task_struct {
 	struct list_head ab_tasks;
 	int ab_identity;
 
+	struct mm_struct *ab_tgleader_mm; // serving as key for futex
 	struct mm_struct *mm, *active_mm;
 
 /* task state */

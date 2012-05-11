@@ -274,12 +274,12 @@ again:
 		if (is_special(current) && (mm->start_data <= address) 
 			&& (address < mm->start_brk)) {
 			//Arbiter: handle mutex declared on global data segment	
-			struct mm_struct *mm_arbiter;
-			mm_arbiter = find_my_arbiter(current)->mm;
-			ab_assert(mm_arbiter != NULL);
+			struct mm_struct *mm_tgleader;
+			mm_tgleader = current->ab_tgleader_mm;
+			ab_assert(mm_tgleader != NULL);
 
 			key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
-			key->private.mm = mm_arbiter;
+			key->private.mm = mm_tgleader;
 			key->private.address = address;
 		}
 		else {

@@ -592,7 +592,7 @@ int main()
 		sleep(2);
 		
 		//launch the application, currently we do not care about command line args
-		char *const arg[] = {APP_EXECUTABLE, "-vvv", "-t1", NULL};
+		char *const arg[] = {APP_EXECUTABLE, "-vvv", "-t2", NULL};
 		rc = execv(APP_EXECUTABLE, arg);
 		perror("arbiter: app launch failed.\n");
 		assert(rc);
