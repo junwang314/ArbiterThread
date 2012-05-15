@@ -74,7 +74,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		    sizeof(cli_state->abt_addr));
 	       
 
-	AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
+	//AB_DBG("rc = %d, hdr->msg_len = %d\n", rc, hdr->msg_len);
 	assert(rc == hdr->msg_len);
 
 	for(;;) {
@@ -95,7 +95,7 @@ static void _client_rpc(struct abrpc_client_state *cli_state,
 		break;
 	}
 	
-	AB_DBG("rc = %d\n", rc);
+	//AB_DBG("rc = %d\n", rc);
 	//reply must be from abt
 	assert(rc == sizeof(struct abt_reply_header));
 
@@ -145,13 +145,26 @@ void init_client_state(label_t L, own_t O)
 
 /**************** API wrappers *******************/
 
+static pthread_mutex_t mutex;
+static pthread_cond_t cond;
+
 pid_t ab_fork(label_t L, own_t O)
 {
 	pid_t pid;
 	struct abreq_fork req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
-		
+
+	pthread_condattr_t cattr;
+	pthread_condattr_init(&cattr);
+	pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+	pthread_mutexattr_t mattr;
+	pthread_mutexattr_init(&mattr);
+	pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+
+	pthread_mutex_init(&mutex, &mattr);
+	pthread_cond_init(&cond, &cattr);
+
 	//now fork a child thread
 	pid = fork();
 	
@@ -160,11 +173,17 @@ pid_t ab_fork(label_t L, own_t O)
 	}
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
+		pthread_mutex_lock(&mutex);
+		pthread_cond_signal(&cond);
+		pthread_mutex_unlock(&mutex);
 		AB_DBG("set %d as special\n", getpid());
 		init_client_state(L, O);
 	}
 	if (pid > 0){ //parent thread
-		sleep(1); //FIXME wait for child to join in order to update its mapping
+		//wait for child to join in order to update its mapping 
+		pthread_mutex_lock(&mutex);
+		pthread_cond_wait(&cond, &mutex);
+		pthread_mutex_unlock(&mutex);
 		//prepare the header
 		req.hdr.abt_magic = ABT_RPC_MAGIC;
 		req.hdr.msg_len = sizeof(req);
@@ -218,6 +237,9 @@ static int _pre_start_routine(void *_pre_arg)
 	//get_big();
 
 	absys_thread_control(AB_SET_ME_SPECIAL);
+	pthread_mutex_lock(&mutex);
+	pthread_cond_signal(&cond);
+	pthread_mutex_unlock(&mutex);
 	AB_DBG("set %d as special\n", getpid());
 	init_client_state(L, O);
 	(*start_routine)(arg);
@@ -238,6 +260,16 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
 	struct pre_arg _pre_arg;
+
+	pthread_condattr_t cattr;
+	pthread_condattr_init(&cattr);
+	pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+	pthread_mutexattr_t mattr;
+	pthread_mutexattr_init(&mattr);
+	pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+
+	pthread_mutex_init(&mutex, &mattr);
+	pthread_cond_init(&cond, &cattr);
 
 	unsigned long stack_high, gdpage_start;
 	//two extras: one for guard page and one for alignment
@@ -265,7 +297,10 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		return -1;
 	}
 
-	sleep(1); //FIXME wait for child to join in order to update its mapping 
+	//wait for child to join in order to update its mapping 
+	pthread_mutex_lock(&mutex);
+	pthread_cond_wait(&cond, &mutex);
+	pthread_mutex_unlock(&mutex);
 
 	*thread = pid;
 	AB_DBG("ab_pthread_create(): *thread = %d\n", (int)*thread);

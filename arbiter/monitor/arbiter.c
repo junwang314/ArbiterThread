@@ -445,7 +445,7 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 	c = arbiter_lookup_client(abt, req->client_addr, req->client_addr_len);
 
 	if (c == NULL ) {
-		AB_MSG("arbiter: unknown client\n");
+		AB_MSG("arbiter: unknown client, opcode=%d\n", hdr->opcode);
 		return;
 	}
 

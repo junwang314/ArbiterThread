@@ -1078,7 +1078,6 @@ use_unit_top:
 	    do {
 		victim = get_ustate(victim_unit)->unit_top;
 		size = chunksize(victim);
-		assert(size <= 1024*1024);
 		if ((unsigned long)(size) >= (unsigned long)(nb)) {
 			remainder_size = size - nb;
 			remainder = chunk_at_offset(victim, nb);
@@ -1339,7 +1338,7 @@ void malloc_update(struct client_desc *c_new)
 		length = unit->length;
 		
 		pv = (int) check_mem_prot(L, O, L_tmp);
-		//AB_DBG("check_mem_prot returns: %d\n", pv);
+		AB_DBG("check_mem_prot returns: %d\n", pv);
 		switch(pv) {
 			case PROT_N: prot = PROT_NONE; break;		
 			case PROT_R: prot = PROT_READ; break;		
@@ -1352,7 +1351,7 @@ void malloc_update(struct client_desc *c_new)
 			AB_MSG("ERROR: malloc_update() failed\n");
 		}
 		AB_DBG("AB_MMAP argument=(%d, %lx, %d, %d)\n", pid, addr, length, prot);
-		//AB_DBG("absys_maprotect argument=(%d, %lx, %lx, %d)\n",pid, addr, length, prot);
+		AB_DBG("absys_maprotect argument=(%d, %lx, %lx, %d)\n",pid, addr, length, prot);
 		//absys_mprotect(pid, addr, length, prot);
 				
 	}

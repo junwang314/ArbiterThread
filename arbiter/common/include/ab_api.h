@@ -65,4 +65,12 @@ static void print_label(label_t L)
 	printf("\n");
 }
 
+static void print_own(own_t O)
+{
+	int i;
+	for (i = 0; i < 8; i++) {
+		printf("O[%d]=%hx  ", i, O[i]);
+	}
+	printf("\n");
+}
 #endif //_AB_API_H
