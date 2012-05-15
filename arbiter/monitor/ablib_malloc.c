@@ -445,7 +445,7 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 				
 				AB_DBG("before call AB_MMAP\n");
 				ab_mm = (char*)(AB_MMAP(pid, (void *)mm, size, PROT_READ|PROT_WRITE));
-				AB_DBG("after call AB_MMAP\n");
+				AB_DBG("after call AB_MMAP, ab_mm=%p, mm=%p\n", ab_mm, mm);
 				assert(ab_mm == (char*)mm);
 
 				if (ab_mm != (char*)(MORECORE_FAILURE)) {
@@ -1078,8 +1078,12 @@ use_unit_top:
 	    do {
 		victim = get_ustate(victim_unit)->unit_top;
 		size = chunksize(victim);
+		assert(size <= 1024*1024);
 		if ((unsigned long)(size) >= (unsigned long)(nb)) {
 			remainder_size = size - nb;
+			remainder = chunk_at_offset(victim, nb);
+			//update top_unit information in ustate
+			get_ustate(victim_unit)->unit_top = remainder;
 			//unlink(victim, bck, fwd);
 
 			/* Exhaust */
@@ -1088,10 +1092,6 @@ use_unit_top:
 			}
 			/* Split */
 			else {
-				remainder = chunk_at_offset(victim, nb);
-				//update top_unit information in ustate
-				get_ustate(victim_unit)->unit_top = remainder;
-
 				/* place remainder back to the topbin */		
 				//bck = unit_tops(av);
 				//fwd = bck->fd;
