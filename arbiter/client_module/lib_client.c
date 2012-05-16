@@ -185,7 +185,7 @@ pid_t ab_fork(label_t L, own_t O)
 	if (pid > 0){ //parent thread
 		//wait for child to join in order to update its mapping 
 		pthread_mutex_lock(&mutex);
-		while(done == 1) {
+		while(done == 0) {
 			pthread_cond_wait(&cond, &mutex);
 		}
 		pthread_mutex_unlock(&mutex);
@@ -306,7 +306,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	//wait for child to join in order to update its mapping 
 	pthread_mutex_lock(&mutex);
-	while(done == 1) {
+	while(done == 0) {
 		pthread_cond_wait(&cond, &mutex);
 	}
 	pthread_mutex_unlock(&mutex);
