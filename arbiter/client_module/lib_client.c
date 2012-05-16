@@ -147,6 +147,7 @@ void init_client_state(label_t L, own_t O)
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cond;
+static int done = 0;
 
 pid_t ab_fork(label_t L, own_t O)
 {
@@ -164,6 +165,7 @@ pid_t ab_fork(label_t L, own_t O)
 
 	pthread_mutex_init(&mutex, &mattr);
 	pthread_cond_init(&cond, &cattr);
+	done = 0;
 
 	//now fork a child thread
 	pid = fork();
@@ -174,6 +176,7 @@ pid_t ab_fork(label_t L, own_t O)
 	if (pid == 0){ //child thread
 		absys_thread_control(AB_SET_ME_SPECIAL);
 		pthread_mutex_lock(&mutex);
+		done = 1;
 		pthread_cond_signal(&cond);
 		pthread_mutex_unlock(&mutex);
 		AB_DBG("set %d as special\n", getpid());
@@ -182,7 +185,9 @@ pid_t ab_fork(label_t L, own_t O)
 	if (pid > 0){ //parent thread
 		//wait for child to join in order to update its mapping 
 		pthread_mutex_lock(&mutex);
-		pthread_cond_wait(&cond, &mutex);
+		while(done == 1) {
+			pthread_cond_wait(&cond, &mutex);
+		}
 		pthread_mutex_unlock(&mutex);
 		//prepare the header
 		req.hdr.abt_magic = ABT_RPC_MAGIC;
@@ -238,6 +243,7 @@ static int _pre_start_routine(void *_pre_arg)
 
 	absys_thread_control(AB_SET_ME_SPECIAL);
 	pthread_mutex_lock(&mutex);
+	done = 1;
 	pthread_cond_signal(&cond);
 	pthread_mutex_unlock(&mutex);
 	AB_DBG("set %d as special\n", getpid());
@@ -270,6 +276,7 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	pthread_mutex_init(&mutex, &mattr);
 	pthread_cond_init(&cond, &cattr);
+	done = 0;
 
 	unsigned long stack_high, gdpage_start;
 	//two extras: one for guard page and one for alignment
@@ -299,7 +306,9 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 	//wait for child to join in order to update its mapping 
 	pthread_mutex_lock(&mutex);
-	pthread_cond_wait(&cond, &mutex);
+	while(done == 1) {
+		pthread_cond_wait(&cond, &mutex);
+	}
 	pthread_mutex_unlock(&mutex);
 
 	*thread = pid;
