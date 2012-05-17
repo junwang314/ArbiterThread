@@ -54,18 +54,18 @@ double stop_timer(long num, FILE *fp)
 	if ( diff_ms > 1 ) {
 		double diff_s = diff_ms / (double)1000;
 		double cmdsec = (double)num / diff_s;
-		printf("\tTook %0.2fms, that is %0.0f keys/second\n", diff_ms, cmdsec);
+		printf("\tTook %0.2fms, that is %0.0f times/second\n", diff_ms, cmdsec);
 		if(fp != NULL)
-			fprintf(fp, "\tTook %0.2fms, that is %0.0f keys/second\n", diff_ms, cmdsec);
+			fprintf(fp, "\tTook %0.2fms, that is %0.0f times/second\n", diff_ms, cmdsec);
 		return diff_ms;
 	}
 	else {
 		long diff_us = time_difference_us(start_tv, stop_tv);
 		double diff_s = diff_us / (double)1000000;
 		double cmdsec = (double)num / diff_s;
-		printf("\tTook %dus, that is %0.0f keys/second\n", diff_us, cmdsec);
+		printf("\tTook %dus, that is %0.0f times/second\n", diff_us, cmdsec);
 		if(fp != NULL)
-			fprintf(fp, "\tTook %dus, that is %0.0f keys/second\n", diff_us, cmdsec);
+			fprintf(fp, "\tTook %dus, that is %0.0f times/second\n", diff_us, cmdsec);
 	}
 	return 0;
 }

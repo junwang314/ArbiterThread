@@ -7,15 +7,20 @@ AB_ROOT=..
 
 CLIENTTEST_SRCS=\
 	client_test.c \
-	test_client_1.c \
+	micro_benchmark.c \
 
 LIB_CLIENT=$(AB_ROOT)/client_module/
+
+LIB_COMMON=$(AB_ROOT)/common/lib/
 
 LIB_CLIENT_OBJS=\
 	$(BUILD)/lib_client.o \
 
+LIB_COMMON_OBJS=\
+	$(BUILD)/timer.o
+
 CLIENTTEST_OBJS=\
-	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(CLIENTTEST_SRCS))) $(LIB_CLIENT_OBJS)
+	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(CLIENTTEST_SRCS))) $(LIB_CLIENT_OBJS) $(LIB_COMMON_OBJS)
 
 
 INCS=\
@@ -37,9 +42,11 @@ DEP_SRCS=\
 
 MODULES=\
 	$(LIB_CLIENT) \
+	$(LIB_COMMON)
 
 MODULE_OBJS=\
 	$(LIB_CLIENT_OBJS) \
+	$(LIB_COMMON_OBJS)
 
 
 ################## include
@@ -54,7 +61,4 @@ include $(AB_ROOT)/common/make.in
 
 $(BUILD)/client_test:$(CLIENTTEST_OBJS)	
 	$(CC) $^ -o $@
-
-run:$(BUILD)/client_test
-	$^
 

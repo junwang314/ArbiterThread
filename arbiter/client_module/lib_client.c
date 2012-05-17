@@ -515,6 +515,11 @@ void get_label(label_t L)
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
 
+	if (L == NULL) {
+		AB_MSG("ERROR: get_label() parameter incorrect!\n");
+		return;
+	}
+
 	//prepare the header
 	req.hdr.abt_magic = ABT_RPC_MAGIC;
 	req.hdr.msg_len = sizeof(req);
@@ -538,6 +543,11 @@ void get_ownership(own_t O)
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
 
+	if (O == NULL) {
+		AB_MSG("ERROR: get_ownership() parameter incorrect!\n");
+		return;
+	}
+
 	//prepare the header
 	req.hdr.abt_magic = ABT_RPC_MAGIC;
 	req.hdr.msg_len = sizeof(req);
@@ -559,6 +569,11 @@ void get_mem_label(void *ptr, label_t L)
 	struct abreq_mem_label req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
+
+	if (ptr == NULL || L == NULL) {
+		AB_MSG("ERROR: get_mem_label() parameter incorrect!\n");
+		return;
+	}
 
 	//prepare the header
 	req.hdr.abt_magic = ABT_RPC_MAGIC;

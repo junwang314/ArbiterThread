@@ -576,8 +576,8 @@ void init_first_child(pid)
 }
 
 
-//#define APP_EXECUTABLE "../application"
-#define APP_EXECUTABLE "../memcached"
+#define APP_EXECUTABLE "../application"
+//#define APP_EXECUTABLE "../memcached"
 
 int main()
 {
