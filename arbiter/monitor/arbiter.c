@@ -15,9 +15,8 @@
 #include "ipc.h"
 #include "client.h"
 #include "ablib_malloc.h" /* ablib_malloc(), ablib_free() */
-//#include "lib_client.h"
 
-extern char **environ;
+#include <lib/timer.h>
 
 /***********************************************************************/
 static void handle_create_cat_rpc(struct arbiter_thread *abt,
@@ -449,6 +448,24 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		return;
 	}
 
+	#ifdef _RPC_COUNT
+	static int rpc_count[10] = {0};
+	rpc_count[hdr->opcode] += 1;
+	printf("RPC count:\n" 
+		"pthread_create: %d\n"
+		"pthread_join: %d\n"
+		"malloc: %d\n"
+		"free: %d\n"
+		"create_category: %d\n"
+		"get_label: %d\n"
+		"get_ownership: %d\n"
+		"get_mem_label: %d\n"
+		"calloc: %d\n"
+		"realloc: %d\n", 
+		rpc_count[0], rpc_count[1], rpc_count[2], rpc_count[3], rpc_count[4],
+		rpc_count[5], rpc_count[6], rpc_count[7], rpc_count[8], rpc_count[9]);
+	#endif
+
 	switch(hdr->opcode) {
 	case ABT_CREATE_CAT:
 	{
@@ -576,8 +593,8 @@ void init_first_child(pid)
 }
 
 
-#define APP_EXECUTABLE "../application"
-//#define APP_EXECUTABLE "../memcached"
+//#define APP_EXECUTABLE "../application"
+#define APP_EXECUTABLE "../memcached"
 
 int main()
 {

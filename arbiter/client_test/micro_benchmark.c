@@ -21,7 +21,7 @@
 /* evaluation parameters */
 //iterations for malloc, calloc, realloc, free, get_label,...
 #define	NUM 100
-//iterations for pthread_create, pthread_join, pthread_self()
+//iterations for pthread_create, pthread_join, pthread_self
 #define NUM_THREADS 4
 
 struct child_arg {
@@ -164,7 +164,7 @@ int client_test()
 	stop_timer(num, fp);
 
 
-	// test code for ab_pthread_create() and ab_pthread_join()
+	// test code for ab_pthread_create()
 	own_t O1 = {r[0], w[0]};
 	pthread_t tid[NUM_THREADS];
 	struct child_arg tdata[NUM_THREADS];
@@ -178,7 +178,18 @@ int client_test()
 	}
 	stop_timer(num, fp);
 
-	// test code for ab_pthread_create() and ab_pthread_join()
+	// test code for ab_pthread_self()
+	pthread_t mytid;
+
+	printf("ab_pthread_self %d times...", NUM_THREADS);
+	fprintf(fp, "ab_pthread_self %d times...", NUM_THREADS);
+	start_timer();
+	for (i = 0; i < NUM; i++) {
+		mytid = ab_pthread_self();
+	}
+	stop_timer(num, fp);
+
+	// test code for ab_pthread_join()
 	sleep(1);
 	int normal = 0;
 	printf("ab_pthread_join %d times...", NUM_THREADS);
