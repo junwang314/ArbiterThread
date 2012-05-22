@@ -563,7 +563,10 @@ static void init_arbiter_thread(struct arbiter_thread *abt)
 	return;
 }
 
-
+#ifdef _SYSCALL_COUNT_TIME
+int syscall_count[3];
+uint64_t syscall_time[3];
+#endif
 
 
 //global state

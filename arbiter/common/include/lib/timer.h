@@ -2,6 +2,10 @@
 #define _TIMER_H
 
 #define _RPC_COUNT
+#define _LIBCALL_COUNT_TIME
+#define _SYSCALL_COUNT_TIME
+
+#define _CPU_FRQ 2566.099  //MHz
 
 void start_timer();
 

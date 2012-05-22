@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <lib/linked_list.h>
+#include <lib/timer.h>
 
 /* data structure that describes the run-time  */
 /* state of an arbiter thread */
@@ -16,5 +17,15 @@ struct arbiter_thread {
 };
 
 extern struct arbiter_thread arbiter;
+
+#ifdef _SYSCALL_COUNT_TIME
+enum syscall_code {
+	SBRK,
+	MMAP,
+	MPROTECT
+};
+extern int syscall_count[3];
+extern uint64_t syscall_time[3];
+#endif
 
 #endif  //_ARBITER_H

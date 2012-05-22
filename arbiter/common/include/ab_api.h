@@ -4,6 +4,7 @@
 #include <stdint.h> /* uint8_t */
 #include <unistd.h> /* pid_t */
 #include <pthread.h>
+#include <ab_debug.h>
 
 #define CAT_S	((uint8_t)0b00000000)
 #define CAT_I	((uint8_t)0b10000000)	// use most significant bit as flag
@@ -60,17 +61,17 @@ static void print_label(label_t L)
 {
 	int i;
 	for (i = 0; i < 8; i++) {
-		printf("L[%d]=%hx  ", i, L[i]);
+		AB_INFO("L[%d]=%hx  ", i, L[i]);
 	}
-	printf("\n");
+	AB_INFO("\n");
 }
 
 static void print_own(own_t O)
 {
 	int i;
 	for (i = 0; i < 8; i++) {
-		printf("O[%d]=%hx  ", i, O[i]);
+		AB_INFO("O[%d]=%hx  ", i, O[i]);
 	}
-	printf("\n");
+	AB_INFO("\n");
 }
 #endif //_AB_API_H

@@ -37,6 +37,7 @@
 #include <ab_os_interface.h>
 #include <ab_debug.h>
 #include <lib/linked_list.h>
+#include <lib/timer.h>
 
 #include "arbiter.h" /* struct arbiter_thread */
 #include "label.h" /* PROT_N, PROT_R, PROT_WR */

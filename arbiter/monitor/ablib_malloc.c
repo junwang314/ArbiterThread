@@ -443,9 +443,18 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 					set_head(p, size|IS_MMAPPED);
 				}
 				
-				AB_DBG("before call AB_MMAP\n");
+#ifdef _SYSCALL_COUNT_TIME
+				syscall_count[MMAP] += 1;
+				uint64_t start = rdtsc();
+#endif
 				ab_mm = (char*)(AB_MMAP(pid, (void *)mm, size, PROT_READ|PROT_WRITE));
-				AB_DBG("after call AB_MMAP, ab_mm=%p, mm=%p\n", ab_mm, mm);
+#ifdef _SYSCALL_COUNT_TIME
+				uint64_t end = rdtsc();
+				syscall_time[MMAP] += end - start;
+				printf("SYSCALL MMAP: count %d, time %0.2fus\n",
+					syscall_count[MMAP],
+					syscall_time[MMAP]/syscall_count[MMAP]/_CPU_FRQ);
+#endif
 				assert(ab_mm == (char*)mm);
 
 				if (ab_mm != (char*)(MORECORE_FAILURE)) {
@@ -512,7 +521,18 @@ static void* __malloc_alloc(pid_t pid, size_t nb, mstate av, label_t L)
 	   below even if we cannot call MORECORE.
 	   */
 	if (size > 0) {
+#ifdef _SYSCALL_COUNT_TIME
+		syscall_count[SBRK] += 1;
+		uint64_t start = rdtsc();
+#endif
 		fst_brk = (char*)(AB_MORECORE(pid, size));
+#ifdef _SYSCALL_COUNT_TIME
+		uint64_t end = rdtsc();
+		syscall_time[SBRK] += end - start;
+		printf("SYSCALL SBRK: count %d, time %0.2fus\n",
+			syscall_count[SBRK],
+			syscall_time[SBRK]/syscall_count[SBRK]/_CPU_FRQ);
+#endif
 		assert(fst_brk != (char*)(MORECORE_FAILURE));
 	}
 	/*
@@ -1306,7 +1326,18 @@ static void prot_update(pid_t pid, void *p, long size, label_t L)
 		}
 		//set protection on page table
 		//AB_DBG("absys_mprotect argument=(%d, %lx, %lx, %d)\n)", pid_tmp, p, size, prot);
+#ifdef _SYSCALL_COUNT_TIME
+		syscall_count[MPROTECT] += 1;
+		uint64_t start = rdtsc();
+#endif
 		absys_mprotect(pid_tmp, p, size, prot);
+#ifdef _SYSCALL_COUNT_TIME
+		uint64_t end = rdtsc();
+		syscall_time[MPROTECT] += end - start;
+		printf("SYSCALL MPROTECT: count %d, time %0.2fus\n",
+			syscall_count[MPROTECT],
+			syscall_time[MPROTECT]/syscall_count[MPROTECT]/_CPU_FRQ);
+#endif
 	}
 }
 
@@ -1324,6 +1355,7 @@ void malloc_update(struct client_desc *c_new)
 	size_t length;
 	int prot;
 	int pv;
+	int rc;
 
 	pid = c_new->pid;
 	*(uint64_t *)L = c_new->label;
@@ -1347,7 +1379,19 @@ void malloc_update(struct client_desc *c_new)
 		}
 		//set protection on page table
 		//AB_MMAP(pid, (void *)addr, length, prot); //TODO: ask Xi: what should absys_mmap do?
-		if (absys_mprotect(pid, (void *)addr, length, prot) != 0) {
+#ifdef _SYSCALL_COUNT_TIME
+		syscall_count[MPROTECT] += 1;
+		uint64_t start = rdtsc();
+#endif
+		rc = absys_mprotect(pid, (void *)addr, length, prot);
+#ifdef _SYSCALL_COUNT_TIME
+		uint64_t end = rdtsc();
+		syscall_time[MPROTECT] += end - start;
+		printf("SYSCALL MPROTECT: count %d, time %0.2fus\n",
+			syscall_count[MPROTECT],
+			syscall_time[MPROTECT]/syscall_count[MPROTECT]/_CPU_FRQ);
+#endif
+		if ( rc != 0) {
 			AB_MSG("ERROR: malloc_update() failed\n");
 		}
 		AB_DBG("AB_MMAP argument=(%d, %lx, %d, %d)\n", pid, addr, length, prot);

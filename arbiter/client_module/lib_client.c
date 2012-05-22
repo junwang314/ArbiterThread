@@ -149,6 +149,11 @@ static pthread_mutex_t mutex;
 static pthread_cond_t cond;
 static int done = 0;
 
+#ifdef _LIBCALL_COUNT_TIME
+int libcall_count[11];
+uint64_t libcall_time[11];
+#endif
+
 pid_t ab_fork(label_t L, own_t O)
 {
 	pid_t pid;
@@ -261,6 +266,10 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 		      void * (*start_routine)(void *), void *arg,
 		      label_t L, own_t O)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[PTHREAD_CREATE] += 1;
+	uint64_t start = rdtsc();
+#endif
 	pid_t pid;
 	struct abreq_fork req;
 	struct abt_reply_header rply;
@@ -330,7 +339,14 @@ int ab_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	
 	if (rply.return_val) //arbiter failed to register 
 		return -1;
-	
+
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[PTHREAD_CREATE] += end - start;
+	printf("LIBCALL PTHREAD_CREATE: count %d, time %0.2fus\n",
+		libcall_count[PTHREAD_CREATE],
+		libcall_time[PTHREAD_CREATE]/libcall_count[PTHREAD_CREATE]/_CPU_FRQ);
+#endif
 	return 0;
 }
 
@@ -385,6 +401,10 @@ int ab_pthread_create_old(pthread_t *thread, const pthread_attr_t *attr,
 
 int ab_pthread_join(pthread_t thread, void **value_ptr)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[PTHREAD_JOIN] += 1;
+	uint64_t start = rdtsc();
+#endif
 	struct abreq_pthread_join req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -405,27 +425,36 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 	assert(rply.msg_len == sizeof(rply));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[PTHREAD_JOIN] += end - start;
+	printf("LIBCALL PTHREAD_JOIN: count %d, time %0.2fus\n",
+		libcall_count[PTHREAD_JOIN],
+		libcall_time[PTHREAD_JOIN]/libcall_count[PTHREAD_JOIN]/_CPU_FRQ);
+#endif
 	AB_DBG("ab_pthread_join: rply.return_val=%d\n", rply.return_val);
 	if(rply.return_val == 0) {
-		wpid = waitpid((pid_t) thread, &status, __WCLONE|__WALL);
-		//FIXME for debug purpose, no need to be so complicated
-		if(wpid <= 0) {
-			return -1;
-		}
-		if(WIFEXITED(status)) {
-			AB_DBG("child %lu exited normally.\n", 
-			       (unsigned long)wpid);
-			return 0;
-		}
-		if(WIFSIGNALED(status)) {
-			AB_DBG("child %lu terminated by a signal.\n",
-			       (unsigned long)wpid);
-			return 0;
-		}
-		else {
-			AB_DBG("wait pid returns with status %d\n", status);
-			return 0;
-		}
+		//for debug purpose, no need to be so complicated
+		//wpid = waitpid((pid_t) thread, &status, __WCLONE|__WALL);
+		//if(wpid <= 0) {
+		//	return -1;
+		//}
+		//if(WIFEXITED(status)) {
+		//	AB_DBG("child %lu exited normally.\n", 
+		//	       (unsigned long)wpid);
+		//	return 0;
+		//}
+		//if(WIFSIGNALED(status)) {
+		//	AB_DBG("child %lu terminated by a signal.\n",
+		//	       (unsigned long)wpid);
+		//	return 0;
+		//}
+		//else {
+		//	AB_DBG("wait pid returns with status %d\n", status);
+		//	return 0;
+		//}
+		AB_MSG("ab_pthread_join() success!\n");
+		return 0;
 	}
 	else {	//pid not found in the control group
 		AB_MSG("ERROR: ab_pthread_join() failure!\n");
@@ -435,11 +464,27 @@ int ab_pthread_join(pthread_t thread, void **value_ptr)
 
 pthread_t ab_pthread_self(void)
 {
-	return (pthread_t)getpid();
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[PTHREAD_SELF] += 1;
+	uint64_t start = rdtsc();
+#endif
+	pthread_t rv = (pthread_t)getpid();
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[PTHREAD_SELF] += end - start;
+	printf("LIBCALL PTHREAD_SELF: count %d, time %0.2fus\n",
+		libcall_count[PTHREAD_SELF],
+		libcall_time[PTHREAD_SELF]/libcall_count[PTHREAD_SELF]/_CPU_FRQ);
+#endif
+	return rv;
 }
 
 void ab_free(void *ptr)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[FREE] += 1;
+	uint64_t start = rdtsc();
+#endif
 	struct abreq_free req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -457,10 +502,22 @@ void ab_free(void *ptr)
 	assert(rply.msg_len == sizeof(rply));
 	
 	//no return value needed	
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[FREE] += end - start;
+	printf("LIBCALL FREE: count %d, time %0.2fus\n",
+		libcall_count[FREE],
+		libcall_time[FREE]/libcall_count[FREE]/_CPU_FRQ);
+#endif
 }
 
 void *ab_malloc(size_t size, label_t L)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[MALLOC] += 1;
+	uint64_t start = rdtsc();
+#endif
+
 	struct abreq_malloc req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -479,12 +536,24 @@ void *ab_malloc(size_t size, label_t L)
 	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 	assert(rply.msg_len == sizeof(rply));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[MALLOC] += end - start;
+	printf("LIBCALL MALLOC: count %d, time %0.2fus\n",
+		libcall_count[MALLOC],
+		libcall_time[MALLOC]/libcall_count[MALLOC]/_CPU_FRQ);
+#endif
 	return (void *)rply.return_val;
 }
 
 /* create a category */
 cat_t create_category(cat_type t)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[CREATE_CAT] += 1;
+	uint64_t start = rdtsc();
+#endif
+
 	struct abreq_create_cat req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -505,12 +574,24 @@ cat_t create_category(cat_type t)
 
 	memcpy(&rval, &rply.return_val, sizeof(cat_t));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[CREATE_CAT] += end - start;
+	printf("LIBCALL CREATE_CAT: count %d, time %0.2fus\n",
+		libcall_count[CREATE_CAT],
+		libcall_time[CREATE_CAT]/libcall_count[CREATE_CAT]/_CPU_FRQ);
+#endif
 	return rval;
 }
 
 /* get label of itself */
 void get_label(label_t L)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[GET_LABEL] += 1;
+	uint64_t start = rdtsc();
+#endif
+
 	struct abreq_label req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -533,12 +614,23 @@ void get_label(label_t L)
 
 	memcpy(L, &rply.return_val_64, sizeof(label_t));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[GET_LABEL] += end - start;
+	printf("LIBCALL GET_LABEL: count %d, time %0.2fus\n",
+		libcall_count[GET_LABEL],
+		libcall_time[GET_LABEL]/libcall_count[GET_LABEL]/_CPU_FRQ);
+#endif
 	return;
 }		
 
 /* get the capability set of itself */
 void get_ownership(own_t O)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[GET_OWNERSHIP] += 1;
+	uint64_t start = rdtsc();
+#endif
 	struct abreq_ownership req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -560,12 +652,23 @@ void get_ownership(own_t O)
 	assert(rply.msg_len == sizeof(rply));
 
 	memcpy(O, &rply.return_val_64, sizeof(own_t));
-
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[GET_OWNERSHIP] += end - start;
+	printf("LIBCALL GET_OWNERSHIP: count %d, time %0.2fus\n",
+		libcall_count[GET_OWNERSHIP],
+		libcall_time[GET_OWNERSHIP]/libcall_count[GET_OWNERSHIP]/_CPU_FRQ);
+#endif
+	return;
 }
 
 /* get the label of a memory object */
 void get_mem_label(void *ptr, label_t L)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[GET_MEM_LABEL] += 1;
+	uint64_t start = rdtsc();
+#endif
 	struct abreq_mem_label req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -590,11 +693,23 @@ void get_mem_label(void *ptr, label_t L)
 
 	memcpy(L, &rply.return_val_64, sizeof(label_t));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[GET_MEM_LABEL] += end - start;
+	printf("LIBCALL GET_MEM_LABEL: count %d, time %0.2fus\n",
+		libcall_count[GET_MEM_LABEL],
+		libcall_time[GET_MEM_LABEL]/libcall_count[GET_MEM_LABEL]/_CPU_FRQ);
+#endif
 	return;
 }
 
 void *ab_calloc(size_t nmemb, size_t size, label_t L)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[CALLOC] += 1;
+	uint64_t start = rdtsc();
+#endif
+
 	struct abreq_calloc req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -614,11 +729,23 @@ void *ab_calloc(size_t nmemb, size_t size, label_t L)
 	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 	assert(rply.msg_len == sizeof(rply));
 
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[CALLOC] += end - start;
+	printf("LIBCALL CALLOC: count %d, time %0.2fus\n",
+		libcall_count[CALLOC],
+		libcall_time[CALLOC]/libcall_count[CALLOC]/_CPU_FRQ);
+#endif
 	return (void *)rply.return_val;
 }
 
 void *ab_realloc(void *ptr, size_t size)
 {
+#ifdef _LIBCALL_COUNT_TIME
+	libcall_count[REALLOC] += 1;
+	uint64_t start = rdtsc();
+#endif
+
 	struct abreq_realloc req;
 	struct abt_reply_header rply;
 	struct abrpc_client_state *state = get_state();
@@ -635,6 +762,13 @@ void *ab_realloc(void *ptr, size_t size)
 	//not an malformed message
 	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
 	assert(rply.msg_len == sizeof(rply));
-	
+
+#ifdef _LIBCALL_COUNT_TIME
+	uint64_t end = rdtsc();
+	libcall_time[REALLOC] += end - start;
+	printf("LIBCALL PTHREAD_REALLOC: count %d, time %0.2fus\n",
+		libcall_count[REALLOC],
+		libcall_time[REALLOC]/libcall_count[REALLOC]/_CPU_FRQ);
+#endif
 	return (void *)rply.return_val;
 }
