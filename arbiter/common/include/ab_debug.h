@@ -5,7 +5,7 @@
 #include <lib/timer.h>
 
 /********** debug **********/
-#if defined _RPC_COUNT || defined _SYSCALL_COUNT_TIME || defined _LIBCALL_COUNT_TIME
+#if defined _RPC_COUNT || defined _SYSCALL_COUNT_TIME || defined _LIBCALL_COUNT_TIME || defined _NO_DBG
 	#define AB_VERBOSE_TAG 0
 	#define AB_INFO_TAG  0 
 	#define AB_DEBUG_TAG  0

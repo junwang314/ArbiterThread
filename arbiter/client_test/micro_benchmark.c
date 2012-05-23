@@ -90,7 +90,7 @@ int client_test()
 		addr_list[i] = (void *)ab_malloc(i*1000, L1);
 		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 	printf("ab_free %d times...", NUM);
 	fprintf(fp, "ab_free %d times...", NUM);
@@ -99,7 +99,7 @@ int client_test()
 		ab_free(addr_list[i]);
 		AB_DBG("ab_free: %p\n", addr_list[i]);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 	printf("ab_malloc again %d times...", NUM);
 	fprintf(fp, "ab_malloc again %d times...", NUM);
@@ -108,7 +108,7 @@ int client_test()
 		addr_list[i] = ab_malloc(i*1000, L1);
 		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 	// test code for ab_realloc()
 	printf("ab_realloc %d times...", NUM);
@@ -118,7 +118,7 @@ int client_test()
 		addr_list[i] = ab_realloc(addr_list[i], (i%2) ? i*990 : i*1010);
 		AB_DBG("ab_realloc: %p, size = %d\n", addr_list[i], (i%20) ? i*990 : i*1010);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 	for (i = 0; i < NUM; i++) {
 		ab_free(addr_list[i]);
 		AB_DBG("ab_free: %p\n", addr_list[i]);
@@ -132,7 +132,7 @@ int client_test()
 		addr_list[i] = ab_calloc(i*10, 100, L1);
 		AB_DBG("ab_calloc: %p, size = %d\n", addr_list[i], i*10*100);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 	// test code for get_mem_label()
 	label_t L_list[NUM];
@@ -142,7 +142,7 @@ int client_test()
 	for (i = 0; i < NUM; i++) {
 		get_mem_label(addr_list[i], L_list[i]);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 	// test code for get_label()
 	printf("get_label %d times...", NUM);
@@ -151,7 +151,7 @@ int client_test()
 	for (i = 0; i < NUM; i++) {
 		get_label(L_list[i]);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 	
 	// test code for get_ownership()
 	own_t O_list[NUM];
@@ -161,7 +161,7 @@ int client_test()
 	for (i = 0; i < NUM; i++) {
 		get_ownership(O_list[i]);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM, fp);
 
 
 	// test code for ab_pthread_create()
@@ -176,7 +176,7 @@ int client_test()
 	for (i = 0; i < NUM_THREADS; i++) {
 		ab_pthread_create(&tid[i], NULL, child_func, &tdata[i], L1, O1);
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM_THREADS, fp);
 
 	// test code for ab_pthread_self()
 	pthread_t mytid;
@@ -187,7 +187,7 @@ int client_test()
 	for (i = 0; i < NUM; i++) {
 		mytid = ab_pthread_self();
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM_THREADS, fp);
 
 	// test code for ab_pthread_join()
 	sleep(1);
@@ -201,7 +201,7 @@ int client_test()
 			normal++;
 		}
 	}
-	stop_timer(num, fp);
+	stop_timer(NUM_THREADS, fp);
 	
 	fclose(fp);
 	if (normal == NUM_THREADS) {
