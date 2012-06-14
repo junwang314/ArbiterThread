@@ -2444,7 +2444,7 @@ unsigned long do_absys_brk(struct task_struct *tsk, unsigned long addr, unsigned
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 	flags = flags | VM_AB_CONTROL;		// add VM_AB_CONTROL flag
 
-	printk("flags: %lx\n", flags);
+	AB_DBG("flags: %lx\n", flags);
 
 	error = arch_mmap_check(addr, len, flags);
 	if (error)
