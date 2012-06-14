@@ -21,7 +21,7 @@
 //iterations for malloc, calloc, realloc, free, get_label,...
 #define	NUM 100
 //iterations for pthread_create, pthread_join, pthread_self
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 
 struct child_arg {
 	unsigned long _addr;

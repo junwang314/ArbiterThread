@@ -22,7 +22,7 @@
 //iterations for malloc, calloc, realloc, free, get_label,...
 #define	NUM 100
 //iterations for pthread_create, pthread_join, pthread_self
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 
 struct child_arg {
 	unsigned long _addr;
@@ -62,10 +62,11 @@ int client_test()
 	}
 
 	// test code for create_category
-	int num = 4; //mximum number of category for a thread is 8
+	int num = 3; //mximum number of category for a thread is 8
 	cat_t r[num], w[num];
 	printf("create_category(CAT_S) %d times...", num);
 	fprintf(fp, "create_category(CAT_S) %d times...", num);
+	r[3] = create_category(CAT_S);
 	start_timer();
 	for (i = 0; i < num; i++) {
 		r[i] = create_category(CAT_S);
@@ -74,6 +75,7 @@ int client_test()
 
 	printf("create_category(CAT_I) %d times...", num);
 	fprintf(fp, "create_category(CAT_I) %d times...", num);
+	w[3] = create_category(CAT_I);
 	start_timer();
 	for (i = 0; i < num; i++) {
 		w[i] = create_category(CAT_I);
@@ -82,6 +84,7 @@ int client_test()
 
 	// test code for ab_malloc() and ab_free()
         label_t L1 = {r[0], w[0]};
+	ab_malloc(10, L1); //to exclude the fist time costly malloc
 	void *addr_list[NUM];
 	printf("ab_malloc %d times...", NUM);
 	fprintf(fp, "ab_malloc %d times...", NUM);
