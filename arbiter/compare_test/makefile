@@ -1,14 +1,12 @@
 AB_ROOT=..
-ULIBC=./malloc-standard
+ULIBC=../malloc-standard
 
 #BUILD is defined in the included template
 #BUILD=./build
 
 
 CLIENTTEST_SRCS=\
-	compare_test.c
-
-ULIBC_SRCS=\
+	compare_test.c \
 	$(ULIBC)/malloc.c \
 	$(ULIBC)/free.c \
 	$(ULIBC)/calloc.c \
@@ -19,11 +17,11 @@ LIB_COMMON=$(AB_ROOT)/common/lib/
 LIB_COMMON_OBJS=\
 	$(BUILD)/timer.o
 
-ULIBC_OBJS=\
+#ULIBC_OBJS=\
 	$(patsubst $(ULIBC)/%, $(BUILD)/%, $(patsubst %.c, %.o, $(ULIBC_SRCS)))
 
 CLIENTTEST_OBJS=\
-	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(CLIENTTEST_SRCS))) $(LIB_COMMON_OBJS) $(ULIBC_OBJS)
+	$(patsubst %, $(BUILD)/%, $(patsubst %.c, %.o, $(CLIENTTEST_SRCS))) $(LIB_COMMON_OBJS) #$(ULIBC_OBJS)
 
 
 INCS=\
@@ -41,7 +39,7 @@ TARGETS=\
 
 DEP_SRCS=\
 	$(CLIENTTEST_SRCS) \
-	$(ULIBC_SRCS)
+#	$(ULIBC_SRCS)
 
 MODULES=\
 	$(LIB_COMMON)
@@ -59,8 +57,8 @@ include $(AB_ROOT)/common/make.in
 #defined in the included template
 #all:$(BUILD_TARGETS) $(BUILD)
 
-$(ULIBC_OBJS):$(ULIBC_SRCS)
-	$(CC) $^ -c $@
+#$(ULIBC_OBJS):$(ULIBC_SRCS)
+#	$(CC) $^ -c $@
 
 $(BUILD)/compare_test:$(CLIENTTEST_OBJS)
 	$(CC) $^ -o $@
