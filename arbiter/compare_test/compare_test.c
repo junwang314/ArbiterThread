@@ -152,7 +152,40 @@ int main()
 		}
 	}
 	stop_timer(NUM_THREADS, fp);
+
+	// test code for sbrk()
+	uint64_t syscall_time = 0;
+	for (i = 0; i < NUM; i++) {
+		uint64_t start = rdtsc();
+		sbrk(10*4096);
+		uint64_t end = rdtsc();
+		syscall_time += end - start;
+	}
+	printf("syscall sbrk: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
+	fprintf(fp, "syscall sbrk: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
 	
+	// test code for mmap()
+	syscall_time = 0;
+	for (i = 0; i < NUM; i++) {
+		uint64_t start = rdtsc();
+		addr_list[i] = mmap(NULL, 10*4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+		uint64_t end = rdtsc();
+		syscall_time += end - start;
+	}
+	printf("syscall mmap: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
+	fprintf(fp, "syscall mmap: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
+	
+	// test code for mprotect()
+	syscall_time = 0;
+	for (i = 0; i < NUM; i++) {
+		uint64_t start = rdtsc();
+		mprotect(addr_list[i], 10*4096, PROT_NONE);
+		uint64_t end = rdtsc();
+		syscall_time += end - start;
+	}
+	printf("syscall mprotect: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
+	fprintf(fp, "syscall mprotect: count %d, time %0.2fus\n", NUM, syscall_time/NUM/_CPU_FRQ);
+
 	fclose(fp);
 	if (normal == NUM_THREADS) {
 		printf("test successful.\n");
