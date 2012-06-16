@@ -20,12 +20,13 @@ extern struct arbiter_thread arbiter;
 
 #ifdef _SYSCALL_COUNT_TIME
 enum syscall_code {
+	SETME,
 	SBRK,
 	MMAP,
 	MPROTECT
 };
-extern int syscall_count[3];
-extern uint64_t syscall_time[3];
+extern int syscall_count[4];
+extern uint64_t syscall_time[4];
 #endif
 
 #endif  //_ARBITER_H

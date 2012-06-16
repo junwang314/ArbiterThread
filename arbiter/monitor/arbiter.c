@@ -364,6 +364,22 @@ static void handle_calloc_rpc(struct arbiter_thread *abt,
 
 }
 
+static void handle_rpc(struct arbiter_thread *abt,
+		       struct client_desc *c,
+		       struct abt_request *req, 
+		       struct rpc_header *hdr)
+{
+	struct abt_reply_header rply;
+	struct abreq_realloc *reallocreq = (struct abreq_realloc *)hdr;
+
+	rply.abt_reply_magic = ABT_RPC_MAGIC;
+	rply.msg_len = sizeof(rply);
+	rply.return_val = 0;
+
+	abt_sendreply(abt, req, &rply);
+
+}
+
 static void handle_realloc_rpc(struct arbiter_thread *abt,
 			       struct client_desc *c,
 			       struct abt_request *req, 
@@ -533,6 +549,12 @@ static void handle_client_rpc(struct arbiter_thread *abt,
 		handle_realloc_rpc(abt, c, req, hdr);
 		break;
 	}
+	case ABT_RPC:
+	{
+		//the handling routine
+		handle_rpc(abt, c, req, hdr);
+		break;
+	}
 
 	default:
 		AB_MSG("arbiter rpc: Invallid OP code!\n");
@@ -564,8 +586,8 @@ static void init_arbiter_thread(struct arbiter_thread *abt)
 }
 
 #ifdef _SYSCALL_COUNT_TIME
-int syscall_count[3];
-uint64_t syscall_time[3];
+int syscall_count[4];
+uint64_t syscall_time[4];
 #endif
 
 
@@ -596,8 +618,8 @@ void init_first_child(pid)
 }
 
 
-//#define APP_EXECUTABLE "../application"
-#define APP_EXECUTABLE "../memcached"
+#define APP_EXECUTABLE "../application"
+//#define APP_EXECUTABLE "../memcached"
 
 int main()
 {
@@ -612,14 +634,25 @@ int main()
 		sleep(2);
 		
 		//launch the application, currently we do not care about command line args
-		char *const arg[] = {APP_EXECUTABLE, "-vvv", "-t2", NULL};
+		char *const arg[] = {APP_EXECUTABLE, "-t2", NULL};
 		rc = execv(APP_EXECUTABLE, arg);
 		perror("arbiter: app launch failed.\n");
 		assert(rc);
 	}
 
 	if (pid > 0){ //arbiter
+#ifdef _SYSCALL_COUNT_TIME
+		syscall_count[SETME] += 1;
+		uint64_t start = rdtsc();
+#endif
 		absys_thread_control(AB_SET_ME_ARBITER);
+#ifdef _SYSCALL_COUNT_TIME
+		uint64_t end = rdtsc();
+		syscall_time[SETME] += end -start;
+		printf("SYSCALL SETME: count %d, time %0.2fus\n",
+			syscall_count[SETME],
+			syscall_time[SETME]/syscall_count[SETME]/_CPU_FRQ);
+#endif
 		init_arbiter_thread(&arbiter);
 		AB_DBG("arbiter: child pid %d\n", pid);
 		//init client metadata @ arbiter side
