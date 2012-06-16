@@ -772,3 +772,23 @@ void *ab_realloc(void *ptr, size_t size)
 #endif
 	return (void *)rply.return_val;
 }
+
+void ab_RPC(void)
+{
+	struct abreq_realloc req;
+	struct abt_reply_header rply;
+	struct abrpc_client_state *state = get_state();
+
+	//prepare the header
+	req.hdr.abt_magic = ABT_RPC_MAGIC;
+	req.hdr.msg_len = sizeof(req);
+	req.hdr.opcode = ABT_RPC;
+
+	_client_rpc(state, &req.hdr, &rply);
+
+	//not an malformed message
+	assert(rply.abt_reply_magic == ABT_RPC_MAGIC);
+	assert(rply.msg_len == sizeof(rply));
+
+	return (void *)rply.return_val;
+}

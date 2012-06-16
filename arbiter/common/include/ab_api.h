@@ -57,6 +57,9 @@ void *ab_calloc(size_t nmemb, size_t size, label_t L);
 /* change the size of the memory block pointed by ptr to size bytes */
 void *ab_realloc(void *ptr, size_t size);
 
+/* RPC rount trip */
+void ab_RPC(void);
+
 static void print_label(label_t L)
 {
 	int i;

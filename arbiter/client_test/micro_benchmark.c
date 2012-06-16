@@ -205,6 +205,15 @@ int client_test()
 		}
 	}
 	stop_timer(NUM_THREADS, fp);
+
+	// test code for RPC round trip
+	printf("RPC round trip %d times...", NUM_THREADS);
+	fprintf(fp, "RPC round trip %d times...", NUM_THREADS);
+	start_timer();
+	for (i = 0; i < NUM_THREADS; i++) {
+		ab_RPC();
+	}
+	stop_timer(NUM_THREADS, fp);
 	
 	fclose(fp);
 	if (normal == NUM_THREADS) {
