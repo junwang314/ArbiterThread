@@ -84,87 +84,87 @@ int client_test()
 
 	// test code for ab_malloc() and ab_free()
         label_t L1 = {r[0], w[0]};
-	ab_malloc(10, L1); //to exclude the fist time costly malloc
+	ab_malloc(10000, L1); //to exclude the fist time costly malloc
 	void *addr_list[NUM];
-	printf("ab_malloc %d times...", NUM);
-	fprintf(fp, "ab_malloc %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		addr_list[i] = (void *)ab_malloc(i*1000, L1);
-		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
-	}
-	stop_timer(NUM, fp);
+	//printf("ab_malloc %d times...", NUM);
+	//fprintf(fp, "ab_malloc %d times...", NUM);
+	//start_timer();
+	//for (i = 0; i < NUM; i++) {
+	//	addr_list[i] = (void *)ab_malloc(i*1000, L1);
+	//	AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
+	//}
+	//stop_timer(NUM, fp);
 
-	printf("ab_free %d times...", NUM);
-	fprintf(fp, "ab_free %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		ab_free(addr_list[i]);
-		AB_DBG("ab_free: %p\n", addr_list[i]);
-	}
-	stop_timer(NUM, fp);
-
-	printf("ab_malloc again %d times...", NUM);
-	fprintf(fp, "ab_malloc again %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		addr_list[i] = ab_malloc(i*1000, L1);
-		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
-	}
-	stop_timer(NUM, fp);
-
-	// test code for ab_realloc()
-	printf("ab_realloc %d times...", NUM);
-	fprintf(fp, "ab_realloc %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		addr_list[i] = ab_realloc(addr_list[i], (i%2) ? i*990 : i*1010);
-		AB_DBG("ab_realloc: %p, size = %d\n", addr_list[i], (i%20) ? i*990 : i*1010);
-	}
-	stop_timer(NUM, fp);
-	for (i = 0; i < NUM; i++) {
-		ab_free(addr_list[i]);
-		AB_DBG("ab_free: %p\n", addr_list[i]);
-	}
-
-	// test code for ab_calloc()
-	printf("ab_calloc %d times...", NUM);
-	fprintf(fp, "ab_calloc %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		addr_list[i] = ab_calloc(i*10, 100, L1);
-		AB_DBG("ab_calloc: %p, size = %d\n", addr_list[i], i*10*100);
-	}
-	stop_timer(NUM, fp);
-
-	// test code for get_mem_label()
+//	printf("ab_free %d times...", NUM);
+//	fprintf(fp, "ab_free %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		ab_free(addr_list[i]);
+//		AB_DBG("ab_free: %p\n", addr_list[i]);
+//	}
+//	stop_timer(NUM, fp);
+//
+//	printf("ab_malloc again %d times...", NUM);
+//	fprintf(fp, "ab_malloc again %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		addr_list[i] = ab_malloc(i*1000, L1);
+//		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
+//	}
+//	stop_timer(NUM, fp);
+//
+//	// test code for ab_realloc()
+//	printf("ab_realloc %d times...", NUM);
+//	fprintf(fp, "ab_realloc %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		addr_list[i] = ab_realloc(addr_list[i], (i%2) ? i*990 : i*1010);
+//		AB_DBG("ab_realloc: %p, size = %d\n", addr_list[i], (i%20) ? i*990 : i*1010);
+//	}
+//	stop_timer(NUM, fp);
+//	for (i = 0; i < NUM; i++) {
+//		ab_free(addr_list[i]);
+//		AB_DBG("ab_free: %p\n", addr_list[i]);
+//	}
+//
+//	// test code for ab_calloc()
+//	printf("ab_calloc %d times...", NUM);
+//	fprintf(fp, "ab_calloc %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		addr_list[i] = ab_calloc(i*10, 100, L1);
+//		AB_DBG("ab_calloc: %p, size = %d\n", addr_list[i], i*10*100);
+//	}
+//	stop_timer(NUM, fp);
+//
+//	// test code for get_mem_label()
 	label_t L_list[NUM];
-	printf("get_mem_label %d times...", NUM);
-	fprintf(fp, "get_mem_label %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		get_mem_label(addr_list[i], L_list[i]);
-	}
-	stop_timer(NUM, fp);
-
-	// test code for get_label()
-	printf("get_label %d times...", NUM);
-	fprintf(fp, "get_label %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		get_label(L_list[i]);
-	}
-	stop_timer(NUM, fp);
-	
-	// test code for get_ownership()
-	own_t O_list[NUM];
-	printf("get_ownership %d times...", NUM);
-	fprintf(fp, "get_ownership %d times...", NUM);
-	start_timer();
-	for (i = 0; i < NUM; i++) {
-		get_ownership(O_list[i]);
-	}
-	stop_timer(NUM, fp);
+//	printf("get_mem_label %d times...", NUM);
+//	fprintf(fp, "get_mem_label %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		get_mem_label(addr_list[i], L_list[i]);
+//	}
+//	stop_timer(NUM, fp);
+//
+//	// test code for get_label()
+//	printf("get_label %d times...", NUM);
+//	fprintf(fp, "get_label %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		get_label(L_list[i]);
+//	}
+//	stop_timer(NUM, fp);
+//	
+//	// test code for get_ownership()
+//	own_t O_list[NUM];
+//	printf("get_ownership %d times...", NUM);
+//	fprintf(fp, "get_ownership %d times...", NUM);
+//	start_timer();
+//	for (i = 0; i < NUM; i++) {
+//		get_ownership(O_list[i]);
+//	}
+//	stop_timer(NUM, fp);
 
 
 	// test code for ab_pthread_create()
@@ -191,6 +191,26 @@ int client_test()
 		mytid = ab_pthread_self();
 	}
 	stop_timer(NUM_THREADS, fp);
+
+	// test code for ab_malloc() and ab_free()
+	ab_malloc(10, L1); //to exclude the fist time costly malloc
+	printf("ab_malloc %d times...", NUM);
+	fprintf(fp, "ab_malloc %d times...", NUM);
+	start_timer();
+	for (i = 0; i < NUM; i++) {
+		addr_list[i] = (void *)ab_malloc(i*1000, L1);
+		AB_DBG("ab_malloc: %p, size = %d\n", addr_list[i], i*1000);
+	}
+	stop_timer(NUM, fp);
+
+	// test code for get_label()
+	printf("get_label %d times...", NUM);
+	fprintf(fp, "get_label %d times...", NUM);
+	start_timer();
+	for (i = 0; i < NUM; i++) {
+		get_label(L_list[i]);
+	}
+	stop_timer(NUM, fp);
 
 	// test code for ab_pthread_join()
 	sleep(1);

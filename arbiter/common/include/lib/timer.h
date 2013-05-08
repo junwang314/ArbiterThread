@@ -6,7 +6,7 @@
 //#define _SYSCALL_COUNT_TIME
 #define _NO_DBG
 
-#define _CPU_FRQ 2566.099  //MHz
+#define _CPU_FRQ 2528.000  //MHz
 
 void start_timer();
 
